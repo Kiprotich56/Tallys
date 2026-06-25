@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Tally's Barbershop & Beauty Studio"
+version = "1.0.0"
+id = "artifacts/tallys"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22758
+
+[services.development]
+run = "pnpm --filter @workspace/tallys run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/tallys", "run", "build" ]
+publicDir = "artifacts/tallys/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22758"
+BASE_PATH = "/"

@@ -1,0 +1,32 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "sE7I1kgrBBPt7bIcIruyg"
+uri = "file://artifacts/tallys/public/hero.png"
+type = "image"
+title = "cinematic barbershop interior"
+
+[[generated]]
+id = "9mMwHZoJEBbIrmGoTCXFk"
+uri = "file://artifacts/tallys/public/team-1.png"
+type = "image"
+title = "barber portrait 1"
+
+[[generated]]
+id = "sXkr9_k7NlF6jJ8npCq_Z"
+uri = "file://artifacts/tallys/public/team-2.png"
+type = "image"
+title = "barber portrait 2"
+
+[[generated]]
+id = "9hb0gy-q5hfamwCX5lRx3"
+uri = "file://artifacts/tallys/public/team-3.png"
+type = "image"
+title = "barber portrait 3"
+
+[[generated]]
+id = "zTRtRUuhw3iD4qCPu3ziN"
+uri = "file://artifacts/tallys/public/gallery-1.png"
+type = "image"
+title = "dreadlocks styling"

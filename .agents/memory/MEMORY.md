@@ -1,0 +1,2 @@
+- [Orval path+query param collision](orval-params-collision.md) — endpoints with both a path param AND a query param produce a TS2308 collision in lib/api-zod. Fix: move path param to query param.
+- [Staff availability route ordering](staff-route-ordering.md) — `/staff/availability` must be registered before `/staff/:id` in Express 5 or "availability" is matched as the :id value.
