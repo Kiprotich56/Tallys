@@ -696,3 +696,43 @@ export const GetTodayAppointmentsResponseItem = zod.object({
 export const GetTodayAppointmentsResponse = zod.array(GetTodayAppointmentsResponseItem)
 
 
+/**
+ * @summary Initiate M-Pesa STK Push payment
+ */
+export const InitiateMpesaPaymentBody = zod.object({
+  "phone": zod.string().describe('Customer phone in format 2547XXXXXXXX or 07XXXXXXXX (auto-normalized)'),
+  "amountKes": zod.number().describe('Amount in KES'),
+  "accountRef": zod.string().describe('Account reference (e.g. appointment ID or service name)'),
+  "description": zod.string().describe('Transaction description shown to customer')
+})
+
+export const InitiateMpesaPaymentResponse = zod.object({
+  "checkoutRequestId": zod.string(),
+  "merchantRequestId": zod.string().optional(),
+  "responseCode": zod.string(),
+  "responseDescription": zod.string(),
+  "customerMessage": zod.string().optional(),
+  "simulated": zod.boolean().optional().describe('True when running in simulation mode (no real Daraja credentials)')
+})
+
+
+/**
+ * @summary Query M-Pesa payment status
+ */
+export const GetMpesaPaymentStatusQueryParams = zod.object({
+  "checkoutRequestId": zod.coerce.string()
+})
+
+export const GetMpesaPaymentStatusResponse = zod.object({
+  "status": zod.enum(['pending', 'success', 'failed']),
+  "resultCode": zod.string().optional(),
+  "resultDesc": zod.string().optional()
+})
+
+
+/**
+ * @summary M-Pesa payment result callback (Safaricom webhook)
+ */
+export const MpesaCallbackResponse = zod.unknown()
+
+

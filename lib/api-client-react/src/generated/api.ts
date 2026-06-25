@@ -28,6 +28,8 @@ import type {
   CustomerInput,
   CustomerUpdate,
   DashboardSummary,
+  ErrorResponse,
+  GetMpesaPaymentStatusParams,
   GetStaffAvailabilityParams,
   HealthStatus,
   ListAppointmentsParams,
@@ -36,6 +38,9 @@ import type {
   ListServicesParams,
   Loyalty,
   LoyaltyRedemption,
+  MpesaStatusResponse,
+  MpesaStkPushBody,
+  MpesaStkPushResponse,
   RevenuePoint,
   Review,
   ReviewInput,
@@ -2519,4 +2524,228 @@ export function useGetTodayAppointments<TData = Awaited<ReturnType<typeof getTod
 
 
 
+
+export const getInitiateMpesaPaymentUrl = () => {
+
+
+
+
+  return `/api/mpesa/stk-push`
+}
+
+/**
+ * @summary Initiate M-Pesa STK Push payment
+ */
+export const initiateMpesaPayment = async (mpesaStkPushBody: MpesaStkPushBody, options?: RequestInit): Promise<MpesaStkPushResponse> => {
+
+  return customFetch<MpesaStkPushResponse>(getInitiateMpesaPaymentUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(mpesaStkPushBody)
+  }
+);}
+
+
+
+
+export const getInitiateMpesaPaymentMutationOptions = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof initiateMpesaPayment>>, TError,{data: BodyType<MpesaStkPushBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof initiateMpesaPayment>>, TError,{data: BodyType<MpesaStkPushBody>}, TContext> => {
+
+const mutationKey = ['initiateMpesaPayment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof initiateMpesaPayment>>, {data: BodyType<MpesaStkPushBody>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  initiateMpesaPayment(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type InitiateMpesaPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof initiateMpesaPayment>>>
+    export type InitiateMpesaPaymentMutationBody = BodyType<MpesaStkPushBody>
+    export type InitiateMpesaPaymentMutationError = ErrorType<ErrorResponse>
+
+    /**
+ * @summary Initiate M-Pesa STK Push payment
+ */
+export const useInitiateMpesaPayment = <TError = ErrorType<ErrorResponse>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof initiateMpesaPayment>>, TError,{data: BodyType<MpesaStkPushBody>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof initiateMpesaPayment>>,
+        TError,
+        {data: BodyType<MpesaStkPushBody>},
+        TContext
+      > => {
+      return useMutation(getInitiateMpesaPaymentMutationOptions(options));
+    }
+
+export const getGetMpesaPaymentStatusUrl = (params: GetMpesaPaymentStatusParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/mpesa/status?${stringifiedParams}` : `/api/mpesa/status`
+}
+
+/**
+ * @summary Query M-Pesa payment status
+ */
+export const getMpesaPaymentStatus = async (params: GetMpesaPaymentStatusParams, options?: RequestInit): Promise<MpesaStatusResponse> => {
+
+  return customFetch<MpesaStatusResponse>(getGetMpesaPaymentStatusUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMpesaPaymentStatusQueryKey = (params?: GetMpesaPaymentStatusParams,) => {
+    return [
+    `/api/mpesa/status`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMpesaPaymentStatusQueryOptions = <TData = Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError = ErrorType<unknown>>(params: GetMpesaPaymentStatusParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMpesaPaymentStatusQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMpesaPaymentStatus>>> = ({ signal }) => getMpesaPaymentStatus(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMpesaPaymentStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getMpesaPaymentStatus>>>
+export type GetMpesaPaymentStatusQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Query M-Pesa payment status
+ */
+
+export function useGetMpesaPaymentStatus<TData = Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError = ErrorType<unknown>>(
+ params: GetMpesaPaymentStatusParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMpesaPaymentStatusQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getMpesaCallbackUrl = () => {
+
+
+
+
+  return `/api/mpesa/callback`
+}
+
+/**
+ * @summary M-Pesa payment result callback (Safaricom webhook)
+ */
+export const mpesaCallback = async ( options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getMpesaCallbackUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+export const getMpesaCallbackMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mpesaCallback>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof mpesaCallback>>, TError,void, TContext> => {
+
+const mutationKey = ['mpesaCallback'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof mpesaCallback>>, void> = () => {
+
+
+          return  mpesaCallback(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MpesaCallbackMutationResult = NonNullable<Awaited<ReturnType<typeof mpesaCallback>>>
+
+    export type MpesaCallbackMutationError = ErrorType<unknown>
+
+    /**
+ * @summary M-Pesa payment result callback (Safaricom webhook)
+ */
+export const useMpesaCallback = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof mpesaCallback>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof mpesaCallback>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getMpesaCallbackMutationOptions(options));
+    }
 

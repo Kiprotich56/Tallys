@@ -7,6 +7,7 @@ import appointmentsRouter from "./appointments";
 import reviewsRouter from "./reviews";
 import loyaltyRouter from "./loyalty";
 import dashboardRouter from "./dashboard";
+import mpesaRouter from "./mpesa";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(appointmentsRouter);
 router.use(reviewsRouter);
 router.use(loyaltyRouter);
 router.use(dashboardRouter);
+router.use(mpesaRouter);
 
 export default router;

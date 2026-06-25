@@ -157,9 +157,10 @@ router.patch("/appointments/:id/complete", async (req, res): Promise<void> => {
   }
 
   // Update staff stats
+  const [staffRow] = await db.select().from(staffTable).where(eq(staffTable.id, appt.staffId));
   await db.update(staffTable).set({
-    completedServices: (await db.select().from(staffTable).where(eq(staffTable.id, appt.staffId)))[0]?.completedServices + 1 ?? 1,
-    revenueGenerated: (await db.select().from(staffTable).where(eq(staffTable.id, appt.staffId)))[0]?.revenueGenerated + appt.totalKes ?? appt.totalKes,
+    completedServices: (staffRow?.completedServices ?? 0) + 1,
+    revenueGenerated: (staffRow?.revenueGenerated ?? 0) + appt.totalKes,
   }).where(eq(staffTable.id, appt.staffId));
 
   res.json(CompleteAppointmentResponse.parse(await enrichAppointment(appt)));

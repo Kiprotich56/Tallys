@@ -234,6 +234,46 @@ export interface StaffPerformance {
   avgRating: number;
 }
 
+export interface MpesaStkPushBody {
+  /** Customer phone in format 2547XXXXXXXX or 07XXXXXXXX (auto-normalized) */
+  phone: string;
+  /** Amount in KES */
+  amountKes: number;
+  /** Account reference (e.g. appointment ID or service name) */
+  accountRef: string;
+  /** Transaction description shown to customer */
+  description: string;
+}
+
+export interface MpesaStkPushResponse {
+  checkoutRequestId: string;
+  merchantRequestId?: string;
+  responseCode: string;
+  responseDescription: string;
+  customerMessage?: string;
+  /** True when running in simulation mode (no real Daraja credentials) */
+  simulated?: boolean;
+}
+
+export type MpesaStatusResponseStatus = typeof MpesaStatusResponseStatus[keyof typeof MpesaStatusResponseStatus];
+
+
+export const MpesaStatusResponseStatus = {
+  pending: 'pending',
+  success: 'success',
+  failed: 'failed',
+} as const;
+
+export interface MpesaStatusResponse {
+  status: MpesaStatusResponseStatus;
+  resultCode?: string;
+  resultDesc?: string;
+}
+
+export interface ErrorResponse {
+  error: string;
+}
+
 export type ListServicesParams = {
 category?: string;
 };
@@ -256,5 +296,9 @@ staffId?: number;
 export type ListReviewsParams = {
 serviceId?: number;
 staffId?: number;
+};
+
+export type GetMpesaPaymentStatusParams = {
+checkoutRequestId: string;
 };
 

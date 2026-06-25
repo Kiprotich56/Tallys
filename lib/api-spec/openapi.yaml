@@ -15,6 +15,7 @@ tags:
   - name: loyalty
   - name: reviews
   - name: dashboard
+  - name: mpesa
 
 paths:
   /healthz:
@@ -659,6 +660,60 @@ paths:
                 items:
                   $ref: "#/components/schemas/Appointment"
 
+  # ───────────────────── MPESA ─────────────────────
+  /mpesa/stk-push:
+    post:
+      operationId: initiateMpesaPayment
+      tags: [mpesa]
+      summary: Initiate M-Pesa STK Push payment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MpesaStkPushBody"
+      responses:
+        "200":
+          description: STK Push initiated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MpesaStkPushResponse"
+        "503":
+          description: M-Pesa service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /mpesa/status:
+    get:
+      operationId: getMpesaPaymentStatus
+      tags: [mpesa]
+      summary: Query M-Pesa payment status
+      parameters:
+        - name: checkoutRequestId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Payment status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MpesaStatusResponse"
+
+  /mpesa/callback:
+    post:
+      operationId: mpesaCallback
+      tags: [mpesa]
+      summary: M-Pesa payment result callback (Safaricom webhook)
+      responses:
+        "200":
+          description: Accepted
+
 components:
   schemas:
     HealthStatus:
@@ -924,3 +979,58 @@ components:
         completedServices: { type: integer }
         revenueKes:        { type: integer }
         avgRating:         { type: number }
+
+    # ─── MPESA ───
+    MpesaStkPushBody:
+      type: object
+      required: [phone, amountKes, accountRef, description]
+      properties:
+        phone:
+          type: string
+          description: "Customer phone in format 2547XXXXXXXX or 07XXXXXXXX (auto-normalized)"
+        amountKes:
+          type: integer
+          description: Amount in KES
+        accountRef:
+          type: string
+          description: "Account reference (e.g. appointment ID or service name)"
+        description:
+          type: string
+          description: "Transaction description shown to customer"
+
+    MpesaStkPushResponse:
+      type: object
+      required: [checkoutRequestId, responseCode, responseDescription]
+      properties:
+        checkoutRequestId:
+          type: string
+        merchantRequestId:
+          type: string
+        responseCode:
+          type: string
+        responseDescription:
+          type: string
+        customerMessage:
+          type: string
+        simulated:
+          type: boolean
+          description: "True when running in simulation mode (no real Daraja credentials)"
+
+    MpesaStatusResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending, success, failed]
+        resultCode:
+          type: string
+        resultDesc:
+          type: string
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string

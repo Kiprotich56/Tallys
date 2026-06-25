@@ -30,8 +30,8 @@ const queryClient = new QueryClient();
 function Router() {
   return (
     <Switch>
-      {/* Admin Routes */}
-      <Route path="/admin" nested>
+      {/* Admin Routes — nest strips /admin prefix for child routes */}
+      <Route path="/admin" nest>
         <AdminLayout>
           <Switch>
             <Route path="/" component={AdminDashboard} />
@@ -44,16 +44,16 @@ function Router() {
         </AdminLayout>
       </Route>
 
-      {/* Public & Portal Routes */}
-      <Route path="/">
+      {/* Public & Portal Routes — no path = wildcard fallback for everything else */}
+      <Route>
         <PublicLayout>
           <Switch>
-            <Route path="/" component={Home} />
             <Route path="/services" component={ServicesPage} />
             <Route path="/book" component={BookPage} />
             <Route path="/team" component={TeamPage} />
             <Route path="/reviews" component={ReviewsPage} />
             <Route path="/portal" component={PortalDashboard} />
+            <Route path="/" component={Home} />
             <Route component={NotFound} />
           </Switch>
         </PublicLayout>
