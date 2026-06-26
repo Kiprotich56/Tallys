@@ -270,9 +270,41 @@ export interface MpesaStatusResponse {
   resultDesc?: string;
 }
 
+export type AuthUserRole = typeof AuthUserRole[keyof typeof AuthUserRole];
+
+
+export const AuthUserRole = {
+  admin: 'admin',
+  customer: 'customer',
+} as const;
+
+export interface AuthUser {
+  id: number;
+  email: string;
+  role: AuthUserRole;
+  customerId?: number | null;
+  name: string;
+}
+
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
+export interface RegisterInput {
+  email: string;
+  password: string;
+  name: string;
+  phone: string;
+}
+
 export interface ErrorResponse {
   error: string;
 }
+
+export type Logout200 = {
+  ok: boolean;
+};
 
 export type ListServicesParams = {
 category?: string;

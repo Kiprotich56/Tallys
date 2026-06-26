@@ -9,6 +9,62 @@ import * as zod from 'zod';
 
 
 /**
+ * @summary Register a new customer account
+ */
+export const RegisterBody = zod.object({
+  "email": zod.string(),
+  "password": zod.string(),
+  "name": zod.string(),
+  "phone": zod.string()
+})
+
+export const RegisterResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'customer']),
+  "customerId": zod.number().nullish(),
+  "name": zod.string()
+})
+
+
+/**
+ * @summary Login with email and password
+ */
+export const LoginBody = zod.object({
+  "email": zod.string(),
+  "password": zod.string()
+})
+
+export const LoginResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'customer']),
+  "customerId": zod.number().nullish(),
+  "name": zod.string()
+})
+
+
+/**
+ * @summary Logout current session
+ */
+export const LogoutResponse = zod.object({
+  "ok": zod.boolean()
+})
+
+
+/**
+ * @summary Get current authenticated user
+ */
+export const GetMeResponse = zod.object({
+  "id": zod.number(),
+  "email": zod.string(),
+  "role": zod.enum(['admin', 'customer']),
+  "customerId": zod.number().nullish(),
+  "name": zod.string()
+})
+
+
+/**
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
@@ -210,6 +266,16 @@ export const UpdateStaffResponse = zod.object({
   "completedServices": zod.number().optional(),
   "revenueGenerated": zod.number().optional()
 })
+
+
+/**
+ * @summary Delete a staff member
+ */
+export const DeleteStaffParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteStaffResponse = zod.void()
 
 
 export const GetStaffAvailabilityQueryParams = zod.object({

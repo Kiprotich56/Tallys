@@ -88,4 +88,11 @@ router.patch("/staff/:id", async (req, res): Promise<void> => {
   res.json(UpdateStaffResponse.parse(mapStaff(member)));
 });
 
+router.delete("/staff/:id", async (req, res): Promise<void> => {
+  const id = Number(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.delete(staffTable).where(eq(staffTable.id, id));
+  res.status(204).send();
+});
+
 export default router;

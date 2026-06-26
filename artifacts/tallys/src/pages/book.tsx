@@ -9,6 +9,8 @@ import {
   useCreateCustomer,
   useInitiateMpesaPayment,
   useGetMpesaPaymentStatus,
+  getGetStaffAvailabilityQueryKey,
+  getGetMpesaPaymentStatusQueryKey,
 } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,9 +55,10 @@ export default function BookPage() {
   const { data: staff, isLoading: loadingStaff } = useListStaff();
 
   const formattedDate = selectedDate ? format(selectedDate, "yyyy-MM-dd") : "";
+  const availabilityParams = { staffId: selectedStaffId!, date: formattedDate };
   const { data: availability, isLoading: loadingAvailability } = useGetStaffAvailability(
-    { staffId: selectedStaffId!, date: formattedDate },
-    { query: { enabled: !!selectedStaffId && !!selectedDate } }
+    availabilityParams,
+    { query: { enabled: !!selectedStaffId && !!selectedDate, queryKey: getGetStaffAvailabilityQueryKey(availabilityParams) } }
   );
 
   const createCustomer = useCreateCustomer();
@@ -63,13 +66,15 @@ export default function BookPage() {
   const initiateMpesa = useInitiateMpesaPayment();
 
   // Polling for payment status — only active while waiting
+  const mpesaStatusParams = { checkoutRequestId: checkoutRequestId! };
   const { data: paymentStatus } = useGetMpesaPaymentStatus(
-    { checkoutRequestId: checkoutRequestId! },
+    mpesaStatusParams,
     {
       query: {
         enabled: !!checkoutRequestId && paymentState === "waiting",
         refetchInterval: 3000,
         refetchIntervalInBackground: false,
+        queryKey: getGetMpesaPaymentStatusQueryKey(mpesaStatusParams),
       },
     }
   );

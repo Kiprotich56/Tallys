@@ -1,8 +1,26 @@
-import { useState } from "react";
-import { Link } from "wouter";
-import { Scissors, Calendar, Users, LayoutDashboard, Settings } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { Scissors, Calendar, Users, LayoutDashboard, Star, LogOut, ChevronRight } from "lucide-react";
+import { useAuth } from "@/contexts/auth-context";
+import { useToast } from "@/hooks/use-toast";
+
+const navItems = [
+  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/admin/appointments", label: "Appointments", icon: Calendar },
+  { href: "/admin/customers", label: "Customers", icon: Users },
+  { href: "/admin/services", label: "Services", icon: Scissors },
+  { href: "/admin/staff", label: "Staff", icon: Star },
+];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  const [location] = useLocation();
+  const { user, logout } = useAuth();
+  const { toast } = useToast();
+
+  const handleLogout = async () => {
+    await logout();
+    window.location.href = "/login";
+  };
+
   return (
     <div className="flex h-screen bg-background text-foreground overflow-hidden">
       {/* Sidebar */}
@@ -13,34 +31,39 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <span>Tally's Admin</span>
           </Link>
         </div>
-        
+
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
-          <Link href="/admin" className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-foreground hover:bg-accent/10 hover:text-primary transition-colors">
-            <LayoutDashboard className="w-4 h-4" />
-            Dashboard
-          </Link>
-          <Link href="/admin/appointments" className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-foreground hover:bg-accent/10 hover:text-primary transition-colors">
-            <Calendar className="w-4 h-4" />
-            Appointments
-          </Link>
-          <Link href="/admin/customers" className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-foreground hover:bg-accent/10 hover:text-primary transition-colors">
-            <Users className="w-4 h-4" />
-            Customers
-          </Link>
-          <Link href="/admin/services" className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-foreground hover:bg-accent/10 hover:text-primary transition-colors">
-            <Scissors className="w-4 h-4" />
-            Services
-          </Link>
-          <Link href="/admin/staff" className="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium text-foreground hover:bg-accent/10 hover:text-primary transition-colors">
-            <Star className="w-4 h-4" />
-            Staff
-          </Link>
+          {navItems.map(({ href, label, icon: Icon, exact }) => {
+            const isActive = exact ? location === href : location.startsWith(href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-foreground hover:bg-accent/10 hover:text-primary"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                {label}
+                {isActive && <ChevronRight className="w-3 h-3 ml-auto" />}
+              </Link>
+            );
+          })}
         </nav>
-        
-        <div className="p-4 border-t border-border">
+
+        <div className="p-4 border-t border-border space-y-2">
           <Link href="/" className="flex items-center justify-center w-full py-2 text-sm text-muted-foreground hover:text-primary transition-colors">
-            Back to Website
+            ← Back to Website
           </Link>
+          <button
+            onClick={handleLogout}
+            className="flex items-center justify-center gap-2 w-full py-2 text-sm text-muted-foreground hover:text-destructive transition-colors"
+          >
+            <LogOut className="w-4 h-4" />
+            Sign Out
+          </button>
         </div>
       </aside>
 
@@ -48,9 +71,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 flex-shrink-0">
           <h1 className="text-lg font-medium">Management Portal</h1>
-          <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold">
-              A
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground hidden sm:block">{user?.email}</span>
+            <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
+              {user?.name?.[0]?.toUpperCase() ?? "A"}
             </div>
           </div>
         </header>
@@ -60,24 +84,4 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       </main>
     </div>
   );
-}
-
-// Temporary Star icon since it wasn't imported
-function Star(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-    </svg>
-  )
 }
