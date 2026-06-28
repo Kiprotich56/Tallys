@@ -33,20 +33,20 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=5000 pnpm --filter @workspace/api-server run dev"
-waitForPort = 5000
+args = "PORT=8080 pnpm --filter @workspace/api-server run dev"
+waitForPort = 8080
 
 [[workflows.workflow]]
 name = "Tallys Frontend"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "PORT=3000 pnpm --filter @workspace/tallys run dev"
-waitForPort = 3000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=22758 BASE_PATH=/ pnpm --filter @workspace/tallys run dev"
+waitForPort = 22758
 
 [agent]
 stack = "PNPM_WORKSPACE"

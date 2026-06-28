@@ -12,6 +12,7 @@ import {
   getGetStaffAvailabilityQueryKey,
   getGetMpesaPaymentStatusQueryKey,
 } from "@workspace/api-client-react";
+import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,6 +36,7 @@ import {
 export default function BookPage() {
   const [step, setStep] = useState(1);
   const [, setLocation] = useLocation();
+  const { user } = useAuth();
 
   // Booking state
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
@@ -43,6 +45,17 @@ export default function BookPage() {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
   const [customerData, setCustomerData] = useState({ name: "", phone: "", email: "", notes: "" });
   const [createdAppointmentId, setCreatedAppointmentId] = useState<number | null>(null);
+
+  // Pre-fill customer data from logged-in user
+  useEffect(() => {
+    if (user) {
+      setCustomerData(prev => ({
+        ...prev,
+        name: prev.name || user.name || "",
+        email: prev.email || user.email || "",
+      }));
+    }
+  }, [user]);
 
   // M-Pesa state
   const [mpesaPhone, setMpesaPhone] = useState("");
@@ -121,27 +134,36 @@ export default function BookPage() {
     handleNext();
   };
 
-  // Step 4 → 5: create customer + appointment, then show payment
+  // Step 4 → 5: create/find customer + appointment, then show payment
   const handleDetailsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedServiceId || !selectedStaffId || !selectedDate || !selectedTimeSlot) return;
     try {
-      const customer = await createCustomer.mutateAsync({
-        data: {
-          name: customerData.name,
-          phone: customerData.phone,
-          email: customerData.email,
-        },
-      });
+      let customerId: number;
+
+      if (user?.customerId) {
+        // Already logged in — use existing customer record directly
+        customerId = user.customerId;
+      } else {
+        // Guest or no account — upsert customer by phone (safe to call multiple times)
+        const customer = await createCustomer.mutateAsync({
+          data: {
+            name: customerData.name,
+            phone: customerData.phone,
+            email: customerData.email || undefined,
+          },
+        });
+        customerId = customer.id;
+      }
 
       const appointment = await createAppointment.mutateAsync({
         data: {
-          customerId: customer.id,
+          customerId,
           serviceId: selectedServiceId,
           staffId: selectedStaffId,
           date: formattedDate,
           timeSlot: selectedTimeSlot,
-          notes: customerData.notes,
+          notes: customerData.notes || undefined,
         },
       });
 
@@ -360,6 +382,16 @@ export default function BookPage() {
               </Button>
               <h2 className="text-2xl font-serif font-bold">Your Details</h2>
             </div>
+
+            {user && (
+              <div className="mb-5 flex items-center gap-3 px-4 py-3 rounded-lg bg-primary/10 border border-primary/20 text-sm">
+                <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-xs flex-shrink-0">
+                  {user.name?.[0]?.toUpperCase() ?? "U"}
+                </div>
+                <span>Booking as <strong>{user.name}</strong> — your details are pre-filled.</span>
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
               <div className="md:col-span-3">
                 <form onSubmit={handleDetailsSubmit} className="space-y-4">
@@ -374,19 +406,21 @@ export default function BookPage() {
                     />
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {!user?.customerId && (
+                      <div>
+                        <Label htmlFor="phone">Phone Number *</Label>
+                        <Input
+                          id="phone"
+                          required
+                          placeholder="0712 345 678"
+                          value={customerData.phone}
+                          onChange={(e) => setCustomerData({ ...customerData, phone: e.target.value })}
+                          className="mt-1"
+                        />
+                      </div>
+                    )}
                     <div>
-                      <Label htmlFor="phone">Phone Number *</Label>
-                      <Input
-                        id="phone"
-                        required
-                        placeholder="0712 345 678"
-                        value={customerData.phone}
-                        onChange={(e) => setCustomerData({ ...customerData, phone: e.target.value })}
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="email">Email (optional)</Label>
+                      <Label htmlFor="email">Email {!user ? "(optional)" : ""}</Label>
                       <Input
                         id="email"
                         type="email"
@@ -421,6 +455,13 @@ export default function BookPage() {
                       )}
                     </Button>
                   </div>
+                  {!user && (
+                    <p className="text-xs text-center text-muted-foreground">
+                      Have an account?{" "}
+                      <a href="/login" className="text-primary hover:underline">Sign in</a>
+                      {" "}to book faster.
+                    </p>
+                  )}
                 </form>
               </div>
 

@@ -56,6 +56,33 @@ router.get("/customers", async (req, res): Promise<void> => {
 router.post("/customers", async (req, res): Promise<void> => {
   const parsed = CreateCustomerBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  // Upsert: if a customer with this phone already exists, return them (prevents duplicate on re-booking)
+  const existing = await db
+    .select()
+    .from(customersTable)
+    .where(eq(customersTable.phone, parsed.data.phone))
+    .limit(1);
+
+  if (existing.length > 0) {
+    // Update name/email if provided and different
+    const updates: Partial<typeof customersTable.$inferInsert> = {};
+    if (parsed.data.name && parsed.data.name !== existing[0].name) updates.name = parsed.data.name;
+    if (parsed.data.email && parsed.data.email !== existing[0].email) updates.email = parsed.data.email;
+
+    if (Object.keys(updates).length > 0) {
+      const [updated] = await db
+        .update(customersTable)
+        .set(updates)
+        .where(eq(customersTable.id, existing[0].id))
+        .returning();
+      res.status(200).json(CreateCustomerResponse.parse(mapCustomer(updated)));
+    } else {
+      res.status(200).json(CreateCustomerResponse.parse(mapCustomer(existing[0])));
+    }
+    return;
+  }
+
   const [customer] = await db.insert(customersTable).values({
     name: parsed.data.name,
     phone: parsed.data.phone,
