@@ -1,12 +1,5 @@
-import { createContext, useContext, ReactNode } from "react";
-import {
-  useGetMe,
-  useLogin,
-  useLogout,
-  useRegister,
-  getGetMeQueryKey,
-} from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { useLogin, useLogout, useRegister } from "@workspace/api-client-react";
 
 export interface AuthUser {
   id: number;
@@ -28,34 +21,38 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function mapToAuthUser(data: any): AuthUser {
+  return {
+    id: data.id,
+    email: data.email,
+    role: data.role as "admin" | "customer",
+    customerId: data.customerId ?? null,
+    name: data.name ?? data.email,
+  };
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const queryClient = useQueryClient();
-  const { data: me, isLoading } = useGetMe();
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Restore session on mount by calling /auth/me directly
+  useEffect(() => {
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => setUser(data ? mapToAuthUser(data) : null))
+      .catch(() => setUser(null))
+      .finally(() => setIsLoading(false));
+  }, []);
 
   const loginMutation = useLogin();
   const logoutMutation = useLogout();
   const registerMutation = useRegister();
 
-  const user: AuthUser | null = me
-    ? {
-        id: me.id,
-        email: me.email,
-        role: me.role as "admin" | "customer",
-        customerId: me.customerId ?? null,
-        name: me.name,
-      }
-    : null;
-
   const login = async (email: string, password: string): Promise<AuthUser> => {
     const result = await loginMutation.mutateAsync({ data: { email, password } });
-    await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-    return {
-      id: result.id,
-      email: result.email,
-      role: result.role as "admin" | "customer",
-      customerId: result.customerId ?? null,
-      name: result.name,
-    };
+    const authUser = mapToAuthUser(result);
+    setUser(authUser);
+    return authUser;
   };
 
   const register = async (
@@ -65,19 +62,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     phone: string,
   ): Promise<AuthUser> => {
     const result = await registerMutation.mutateAsync({ data: { email, password, name, phone } });
-    await queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-    return {
-      id: result.id,
-      email: result.email,
-      role: result.role as "admin" | "customer",
-      customerId: result.customerId ?? null,
-      name: result.name,
-    };
+    const authUser = mapToAuthUser(result);
+    setUser(authUser);
+    return authUser;
   };
 
   const logout = async () => {
     await logoutMutation.mutateAsync();
-    queryClient.clear();
+    setUser(null);
   };
 
   return (
