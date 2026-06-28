@@ -154,7 +154,20 @@ export default function LoginPage() {
           </form>
           )}
         </div>
-
+{mode === "login" && (
+            <div className="mt-6 pt-6 border-t border-border text-center">
+              <p className="text-xs text-muted-foreground mb-3">Admin access</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setEmail("admin@tallys.co.ke");
+                  setPassword("Tallys@Admin2024");
+                }}
+                className="text-xs text-primary hover:underline"
+              >
+                Fill admin credentials
+              </button>
+            </div>
         <p className="text-center text-sm text-muted-foreground mt-6">
           <a href="/" className="hover:text-primary">← Back to website</a>
         </p>
