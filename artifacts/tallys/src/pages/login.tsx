@@ -57,11 +57,16 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <a href="/" className="inline-flex items-center gap-2 text-primary font-serif font-bold text-2xl mb-2">
+          <a
+            href="/"
+            className="inline-flex items-center gap-2 text-primary font-serif font-bold text-2xl mb-2"
+          >
             <Scissors className="w-6 h-6" />
             Tally's
           </a>
-          <p className="text-muted-foreground text-sm mt-1">Barbershop & Beauty Studio</p>
+          <p className="text-muted-foreground text-sm mt-1">
+            Barbershop & Beauty Studio
+          </p>
         </div>
 
         <div className="bg-card border border-border rounded-xl p-8 shadow-lg">
@@ -95,7 +100,9 @@ export default function LoginPage() {
             {mode === "register" && (
               <>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">Full Name</label>
+                  <label className="block text-sm font-medium mb-1.5">
+                    Full Name
+                  </label>
                   <Input
                     placeholder="Jane Doe"
                     value={name}
@@ -104,7 +111,9 @@ export default function LoginPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">Phone Number</label>
+                  <label className="block text-sm font-medium mb-1.5">
+                    Phone Number
+                  </label>
                   <Input
                     placeholder="0712 345 678"
                     value={phone}
@@ -116,7 +125,9 @@ export default function LoginPage() {
             )}
 
             <div>
-              <label className="block text-sm font-medium mb-1.5">Email Address</label>
+              <label className="block text-sm font-medium mb-1.5">
+                Email Address
+              </label>
               <Input
                 type="email"
                 placeholder="you@example.com"
@@ -127,7 +138,9 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1.5">Password</label>
+              <label className="block text-sm font-medium mb-1.5">
+                Password
+              </label>
               <div className="relative">
                 <Input
                   type={showPassword ? "text" : "password"}
@@ -143,35 +156,29 @@ export default function LoginPage() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
 
             <Button type="submit" className="w-full mt-2" disabled={loading}>
-              {loading ? "Please wait..." : mode === "login" ? "Sign In" : "Create Account"}
+              {loading
+                ? "Please wait..."
+                : mode === "login"
+                  ? "Sign In"
+                  : "Create Account"}
             </Button>
           </form>
-
-          {mode === "login" && (
-            <div className="mt-6 pt-6 border-t border-border text-center">
-              <p className="text-xs text-muted-foreground mb-3">Admin access</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("admin@tallys.co.ke");
-                  setPassword("Tallys@Admin2024");
-                }}
-                className="text-xs text-primary hover:underline"
-              >
-                Fill admin credentials
-              </button>
-            </div>
-          )}
         </div>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
-          <a href="/" className="hover:text-primary">← Back to website</a>
+          <a href="/" className="hover:text-primary">
+            ← Back to website
+          </a>
         </p>
       </div>
     </div>
