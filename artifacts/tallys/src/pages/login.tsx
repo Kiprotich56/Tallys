@@ -152,21 +152,6 @@ export default function LoginPage() {
               {loading ? "Please wait..." : mode === "login" ? "Sign In" : "Create Account"}
             </Button>
           </form>
-
-          {mode === "login" && (
-            <div className="mt-6 pt-6 border-t border-border text-center">
-              <p className="text-xs text-muted-foreground mb-3">Admin access</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setEmail("admin@tallys.co.ke");
-                  setPassword("Tallys@Admin2024");
-                }}
-                className="text-xs text-primary hover:underline"
-              >
-                Fill admin credentials
-              </button>
-            </div>
           )}
         </div>
 
