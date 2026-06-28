@@ -9,6 +9,8 @@ import reviewsRouter from "./reviews";
 import loyaltyRouter from "./loyalty";
 import dashboardRouter from "./dashboard";
 import mpesaRouter from "./mpesa";
+import whatsappRouter from "./whatsapp";
+import adminDbRouter from "./admin-db";
 
 const router: IRouter = Router();
 
@@ -22,5 +24,7 @@ router.use(reviewsRouter);
 router.use(loyaltyRouter);
 router.use(dashboardRouter);
 router.use(mpesaRouter);
+router.use(whatsappRouter);
+router.use(adminDbRouter);
 
 export default router;
