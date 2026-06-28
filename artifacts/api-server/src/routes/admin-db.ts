@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { eq } from "drizzle-orm";
 import {
   db,
@@ -11,6 +11,14 @@ import {
 } from "@workspace/db";
 
 const router: IRouter = Router();
+
+function requireAdmin(req: Request, res: Response, next: NextFunction): void {
+  if (!req.session?.userId || req.session?.role !== "admin") {
+    res.status(403).json({ error: "Admin access required" });
+    return;
+  }
+  next();
+}
 
 const TABLES = {
   customers: customersTable,
@@ -27,7 +35,7 @@ function isTableName(name: string): name is TableName {
   return name in TABLES;
 }
 
-router.get("/admin/db/overview", async (_req, res): Promise<void> => {
+router.get("/admin/db/overview", requireAdmin, async (_req, res): Promise<void> => {
   const counts = await Promise.all(
     Object.entries(TABLES).map(async ([name, table]) => {
       const rows = await db.select().from(table as any);
@@ -37,7 +45,7 @@ router.get("/admin/db/overview", async (_req, res): Promise<void> => {
   res.json(counts);
 });
 
-router.get("/admin/db/:table", async (req, res): Promise<void> => {
+router.get("/admin/db/:table", requireAdmin, async (req, res): Promise<void> => {
   const { table } = req.params;
   if (!isTableName(table)) {
     res.status(404).json({ error: `Unknown table: ${table}` });
@@ -47,7 +55,7 @@ router.get("/admin/db/:table", async (req, res): Promise<void> => {
   res.json(rows);
 });
 
-router.delete("/admin/db/:table/:id", async (req, res): Promise<void> => {
+router.delete("/admin/db/:table/:id", requireAdmin, async (req, res): Promise<void> => {
   const { table, id } = req.params;
   if (!isTableName(table)) {
     res.status(404).json({ error: `Unknown table: ${table}` });
@@ -63,7 +71,7 @@ router.delete("/admin/db/:table/:id", async (req, res): Promise<void> => {
   res.json({ ok: true });
 });
 
-router.patch("/admin/db/:table/:id", async (req, res): Promise<void> => {
+router.patch("/admin/db/:table/:id", requireAdmin, async (req, res): Promise<void> => {
   const { table, id } = req.params;
   if (!isTableName(table)) {
     res.status(404).json({ error: `Unknown table: ${table}` });

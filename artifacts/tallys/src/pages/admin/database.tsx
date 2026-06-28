@@ -45,7 +45,7 @@ function TableView({ tableName, onClose }: { tableName: TableName; onClose: () =
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`${BASE}/api/admin/db/${tableName}`);
+    const res = await fetch(`${BASE}/api/admin/db/${tableName}`, { credentials: "include" });
     const data = await res.json();
     setRows(data);
     setLoading(false);
@@ -56,7 +56,7 @@ function TableView({ tableName, onClose }: { tableName: TableName; onClose: () =
   const handleDelete = async (id: number) => {
     if (!confirm(`Delete record #${id}?`)) return;
     setDeleting(id);
-    await fetch(`${BASE}/api/admin/db/${tableName}/${id}`, { method: "DELETE" });
+    await fetch(`${BASE}/api/admin/db/${tableName}/${id}`, { method: "DELETE", credentials: "include" });
     await load();
     setDeleting(null);
   };
@@ -74,6 +74,7 @@ function TableView({ tableName, onClose }: { tableName: TableName; onClose: () =
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(patchable),
+      credentials: "include",
     });
     setEditRow(null);
     await load();
@@ -257,7 +258,7 @@ function WhatsAppPanel() {
   const [result, setResult] = useState<{ ok: boolean; simulated?: boolean; messageId?: string } | null>(null);
 
   useEffect(() => {
-    fetch(`${BASE}/api/whatsapp/status`).then(r => r.json()).then(setStatus);
+    fetch(`${BASE}/api/whatsapp/status`, { credentials: "include" }).then(r => r.json()).then(setStatus);
   }, []);
 
   const handleSend = async () => {
@@ -268,6 +269,7 @@ function WhatsAppPanel() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ to, message }),
+      credentials: "include",
     });
     const data = await res.json();
     setResult(data);
@@ -367,7 +369,7 @@ export default function AdminDatabase() {
 
   const loadOverview = async () => {
     setLoadingOverview(true);
-    const res = await fetch(`${BASE}/api/admin/db/overview`);
+    const res = await fetch(`${BASE}/api/admin/db/overview`, { credentials: "include" });
     const data = await res.json();
     setOverview(data);
     setLoadingOverview(false);

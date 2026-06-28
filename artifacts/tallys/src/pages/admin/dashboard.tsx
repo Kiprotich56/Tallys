@@ -8,7 +8,7 @@ export default function AdminDashboard() {
   const { data: todayAppointments, isLoading: loadingToday } = useGetTodayAppointments();
   const { data: staffPerformance, isLoading: loadingStaff } = useGetStaffPerformance();
 
-  if (loadingSummary) return <div className="p-8">Loading dashboard...</div>;
+  if (loadingSummary) return <div className="p-8 text-muted-foreground">Loading dashboard...</div>;
 
   return (
     <div className="space-y-8">

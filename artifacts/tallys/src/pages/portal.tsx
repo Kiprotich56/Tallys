@@ -1,14 +1,11 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Star, Calendar, Clock, Crown, History, LogOut } from "lucide-react";
+import { Star, Calendar, Clock, Crown, History, LogOut, Scissors } from "lucide-react";
 import {
   useGetCustomer,
   useGetCustomerAppointments,
   useGetLoyalty,
   useCancelAppointment,
-  getGetCustomerQueryKey,
-  getGetCustomerAppointmentsQueryKey,
-  getGetLoyaltyQueryKey,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
@@ -16,7 +13,6 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
 } from "@/components/ui/alert-dialog";
-import { useQueryClient } from "@tanstack/react-query";
 
 const TIER_VISITS: Record<string, [number, number]> = {
   Bronze: [0, 4],
@@ -37,13 +33,12 @@ export default function PortalDashboard() {
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [cancelId, setCancelId] = useState<number | null>(null);
-  const queryClient = useQueryClient();
 
   const customerId = user?.customerId ?? 0;
 
-  const { data: customer } = useGetCustomer(customerId, { query: { enabled: !!customerId, queryKey: getGetCustomerQueryKey(customerId) } });
-  const { data: appointments, refetch: refetchAppointments } = useGetCustomerAppointments(customerId, { query: { enabled: !!customerId, queryKey: getGetCustomerAppointmentsQueryKey(customerId) } });
-  const { data: loyalty } = useGetLoyalty(customerId, { query: { enabled: !!customerId, queryKey: getGetLoyaltyQueryKey(customerId) } });
+  const { data: customer } = useGetCustomer(customerId, { query: { enabled: customerId > 0 } });
+  const { data: appointments, refetch: refetchAppointments } = useGetCustomerAppointments(customerId, { query: { enabled: customerId > 0 } });
+  const { data: loyalty } = useGetLoyalty(customerId, { query: { enabled: customerId > 0 } });
 
   const cancelAppointment = useCancelAppointment();
 
