@@ -152,7 +152,7 @@ export default function LoginPage() {
               {loading ? "Please wait..." : mode === "login" ? "Sign In" : "Create Account"}
             </Button>
           </form>
-          )}
+          )
         </div>
 {mode === "login" && (
             <div className="mt-6 pt-6 border-t border-border text-center">
