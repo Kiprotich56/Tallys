@@ -160,7 +160,7 @@ export default function LoginPage() {
                 type="button"
                 onClick={() => {
                   setEmail("admin@tallys.co.ke");
-                  setPassword("Tallys2024!");
+                  setPassword("Tallys@Admin2024");
                 }}
                 className="text-xs text-primary hover:underline"
               >
