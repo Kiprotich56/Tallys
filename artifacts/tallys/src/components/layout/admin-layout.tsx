@@ -1,22 +1,20 @@
 import { Link, useLocation } from "wouter";
 import { Scissors, Calendar, Users, LayoutDashboard, Star, LogOut, ChevronRight, Database, MessageSquare } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { useToast } from "@/hooks/use-toast";
 
 const navItems = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/admin/appointments", label: "Appointments", icon: Calendar },
-  { href: "/admin/customers", label: "Customers", icon: Users },
-  { href: "/admin/services", label: "Services", icon: Scissors },
-  { href: "/admin/staff", label: "Staff", icon: Star },
-  { href: "/admin/reviews", label: "Reviews", icon: MessageSquare },
-  { href: "/admin/database", label: "Database", icon: Database },
+  { href: "/",            label: "Dashboard",    icon: LayoutDashboard, exact: true },
+  { href: "/appointments",label: "Appointments", icon: Calendar },
+  { href: "/customers",   label: "Customers",    icon: Users },
+  { href: "/services",    label: "Services",     icon: Scissors },
+  { href: "/staff",       label: "Staff",        icon: Star },
+  { href: "/reviews",     label: "Reviews",      icon: MessageSquare },
+  { href: "/database",    label: "Database",     icon: Database },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user, logout } = useAuth();
-  const { toast } = useToast();
 
   const handleLogout = async () => {
     await logout();
@@ -28,7 +26,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Sidebar */}
       <aside className="w-64 bg-card border-r border-border flex flex-col flex-shrink-0">
         <div className="h-16 flex items-center px-6 border-b border-border">
-          <Link href="/admin" className="flex items-center gap-2 text-primary font-serif font-bold text-xl">
+          {/* ~/ means root-absolute, bypasses the /admin nest base */}
+          <Link href="~/" className="flex items-center gap-2 text-primary font-serif font-bold text-xl">
             <Scissors className="w-5 h-5" />
             <span>Tally's Admin</span>
           </Link>
@@ -56,7 +55,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
 
         <div className="p-4 border-t border-border space-y-2">
-          <Link href="/" className="flex items-center justify-center w-full py-2 text-sm text-muted-foreground hover:text-primary transition-colors">
+          {/* ~/ navigates to the true root, not /admin/ */}
+          <Link href="~/" className="flex items-center justify-center w-full py-2 text-sm text-muted-foreground hover:text-primary transition-colors">
             ← Back to Website
           </Link>
           <button
