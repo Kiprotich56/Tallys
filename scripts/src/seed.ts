@@ -199,6 +199,93 @@ async function seed() {
     console.log(`   ⏭  Admin user already exists, skipping\n`);
   }
 
+  // --- Reviews ---
+  console.log("⭐ Seeding reviews...");
+  const existingReviews = await db.select({ id: schema.reviewsTable.id }).from(schema.reviewsTable);
+  if (existingReviews.length === 0) {
+    const allStaff = await db.select({ id: schema.staffTable.id }).from(schema.staffTable);
+    const allServices = await db.select({ id: schema.servicesTable.id }).from(schema.servicesTable);
+    const allCustomers = await db.select({ id: schema.customersTable.id }).from(schema.customersTable);
+
+    if (allStaff.length > 0 && allServices.length > 0 && allCustomers.length > 0) {
+      const customerId = allCustomers[0].id;
+
+      const reviewData = [
+        {
+          customerId,
+          staffId: allStaff[0]?.id,
+          serviceId: allServices[0]?.id,
+          rating: 5,
+          comment: "Absolutely incredible experience! Tally gave me the best skin fade I've ever had. The attention to detail is unmatched — crisp lines, perfect blend. The studio has such a professional yet relaxed vibe. I'm a customer for life!",
+          status: "approved",
+        },
+        {
+          customerId,
+          staffId: allStaff[1]?.id,
+          serviceId: allServices[12]?.id ?? allServices[0].id,
+          rating: 5,
+          comment: "Amina transformed my hair completely. The balayage looks so natural and the keratin treatment has my hair smoother than ever. She really listens to what you want and delivers beyond expectations. Already booked my next appointment!",
+          status: "approved",
+        },
+        {
+          customerId,
+          staffId: allStaff[2]?.id,
+          serviceId: allServices[1]?.id ?? allServices[0].id,
+          rating: 5,
+          comment: "Brian is a wizard with fades. Showed him a reference photo and he nailed it perfectly — even better than the picture. The hot towel finish was so relaxing. Best barbershop in Nairobi, hands down.",
+          status: "approved",
+        },
+        {
+          customerId,
+          staffId: allStaff[3]?.id,
+          serviceId: allServices[14]?.id ?? allServices[0].id,
+          rating: 5,
+          comment: "Grace's facial left my skin glowing for days! She was so gentle and knowledgeable about skincare. The gel manicure is still going strong three weeks later. Tally's is the full package — highly recommend to everyone!",
+          status: "approved",
+        },
+        {
+          customerId,
+          staffId: allStaff[4]?.id,
+          serviceId: allServices[2]?.id ?? allServices[0].id,
+          rating: 4,
+          comment: "Kevin did a great taper fade and the lineup is super clean. The studio is spotless and the staff are friendly. Pricing is fair for the quality you get. Will definitely be coming back regularly.",
+          status: "approved",
+        },
+        {
+          customerId,
+          staffId: allStaff[0]?.id,
+          serviceId: allServices[5]?.id ?? allServices[0].id,
+          rating: 5,
+          comment: "I came in for a beard trim and left feeling like a completely new person. Tally takes his time and makes sure every detail is perfect. The whole team is warm and welcoming. This place is a hidden gem!",
+          status: "approved",
+        },
+        {
+          customerId,
+          staffId: allStaff[1]?.id,
+          serviceId: allServices[13]?.id ?? allServices[0].id,
+          rating: 4,
+          comment: "The hair colouring turned out exactly as I envisioned. Amina was patient and walked me through the whole process. The salon is clean and well-equipped. Slightly long wait but absolutely worth it!",
+          status: "approved",
+        },
+        {
+          customerId,
+          staffId: allStaff[3]?.id,
+          serviceId: allServices[19]?.id ?? allServices[0].id,
+          rating: 5,
+          comment: "Grace did my nails and I cannot stop staring at them! The nail art design she created was so unique and beautiful. She's incredibly talented and so friendly. Tally's is now my go-to for everything beauty.",
+          status: "approved",
+        },
+      ];
+
+      await db.insert(schema.reviewsTable).values(reviewData);
+      console.log(`   ✓ Inserted ${reviewData.length} approved reviews\n`);
+    } else {
+      console.log("   ⚠  Skipping reviews — no customers/staff/services found\n");
+    }
+  } else {
+    console.log(`   ⏭  ${existingReviews.length} reviews already exist, skipping\n`);
+  }
+
   console.log("✅ Seed complete!");
   await pool.end();
 }

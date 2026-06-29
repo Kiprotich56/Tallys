@@ -125,6 +125,16 @@ export default function BookPage() {
   };
 
   const handleDateSelect = (date: Date | undefined) => {
+    if (!date) {
+      setSelectedDate(undefined);
+      setSelectedTimeSlot(null);
+      return;
+    }
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (date < today) {
+      return;
+    }
     setSelectedDate(date);
     setSelectedTimeSlot(null);
   };

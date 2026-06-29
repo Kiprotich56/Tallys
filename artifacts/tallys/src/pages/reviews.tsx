@@ -1,9 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useListReviews } from "@workspace/api-client-react";
 import { Star, Quote } from "lucide-react";
 
 export default function ReviewsPage() {
   const { data: reviews, isLoading } = useListReviews();
+  const [directReviews, setDirectReviews] = useState<any[] | null>(null);
+
+  useEffect(() => {
+    fetch('/api/reviews')
+      .then(r => r.json())
+      .then((data: any[]) => setDirectReviews(data))
+      .catch(() => setDirectReviews([]));
+  }, []);
+
+  const displayReviews = (reviews && reviews.length > 0)
+    ? reviews.filter(r => r.status === "approved")
+    : (directReviews ?? []).filter((r: any) => r.status === "approved");
+
+  const loading = isLoading && directReviews === null;
 
   return (
     <div className="container mx-auto px-4 py-16">
@@ -14,18 +28,18 @@ export default function ReviewsPage() {
         </p>
       </div>
 
-      {isLoading ? (
+      {loading ? (
         <div className="text-center text-muted-foreground">Loading reviews...</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {reviews?.filter(r => r.status === "approved").map((review) => (
+          {displayReviews.map((review: any) => (
             <div key={review.id} className="bg-card border border-border p-8 rounded-lg relative">
               <Quote className="absolute top-6 right-6 w-8 h-8 text-muted/20" />
               <div className="flex gap-1 mb-4">
                 {Array.from({ length: 5 }).map((_, i) => (
-                  <Star 
-                    key={i} 
-                    className={`w-4 h-4 ${i < review.rating ? "fill-primary text-primary" : "fill-muted text-muted"}`} 
+                  <Star
+                    key={i}
+                    className={`w-4 h-4 ${i < review.rating ? "fill-primary text-primary" : "fill-muted text-muted"}`}
                   />
                 ))}
               </div>
@@ -38,8 +52,8 @@ export default function ReviewsPage() {
               </div>
             </div>
           ))}
-          
-          {reviews?.filter(r => r.status === "approved").length === 0 && (
+
+          {displayReviews.length === 0 && (
             <div className="col-span-full text-center text-muted-foreground py-12">
               No reviews available yet.
             </div>

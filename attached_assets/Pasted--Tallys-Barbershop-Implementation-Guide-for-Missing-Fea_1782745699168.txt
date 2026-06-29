@@ -1,0 +1,720 @@
+# Tallys Barbershop - Implementation Guide for Missing Features
+
+## Quick Reference: What to Add
+
+---
+
+## 🔴 CRITICAL ISSUES (Fix Before Production)
+
+### 1. Missing Auth Middleware on Protected Routes
+
+**Problem:** Anyone can access admin endpoints, create/delete appointments, etc.
+
+**Files to Modify:**
+```
+artifacts/api-server/src/routes/
+├── appointments.ts      ← Add @middleware/requireAuth
+├── customers.ts         ← Add @middleware/requireAdmin
+├── services.ts          ← Add @middleware/requireAdmin
+├── staff.ts             ← Add @middleware/requireAdmin
+├── reviews.ts           ← Add @middleware/requireAuth (user must be logged in)
+├── dashboard.ts         ← Add @middleware/requireAdmin
+└── loyalty.ts           ← Add @middleware/requireAuth
+```
+
+**Code Pattern:**
+```typescript
+import { requireAuth, requireAdmin } from "../middlewares/auth";
+
+// Public endpoint
+router.get("/services", async (req, res) => { ... });
+
+// Protected: any logged-in user
+router.post("/appointments", requireAuth, async (req, res) => { ... });
+
+// Protected: admin only
+router.delete("/services/:id", requireAdmin, async (req, res) => { ... });
+```
+
+**Priority:** 🔴 CRITICAL - Fix immediately
+
+---
+
+### 2. No Tests (Unit, Integration, E2E)
+
+**Problem:** No confidence in code reliability, hard to refactor safely
+
+**Setup Steps:**
+
+```bash
+# Add testing libraries
+pnpm add -D vitest @vitest/ui @testing-library/react @testing-library/jest-dom
+pnpm add -D jest @types/jest supertest
+
+# For API backend tests
+pnpm add -D supertest @types/supertest
+```
+
+**Test Structure:**
+```
+artifacts/api-server/src/
+├── routes/
+│   ├── __tests__/
+│   │   ├── appointments.test.ts
+│   │   ├── auth.test.ts
+│   │   └── services.test.ts
+│   └── ...
+└── __tests__/
+    └── setup.ts
+
+artifacts/tallys/src/
+├── pages/__tests__/
+│   ├── home.test.tsx
+│   └── login.test.tsx
+└── hooks/__tests__/
+    └── use-auth.test.ts
+```
+
+**Example Test File (appointments.test.ts):**
+```typescript
+import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import request from "supertest";
+import app from "../app";
+import { db, appointmentsTable } from "@workspace/db";
+
+describe("POST /appointments", () => {
+  it("should create appointment with valid data", async () => {
+    const res = await request(app)
+      .post("/api/appointments")
+      .send({
+        customerId: 1,
+        serviceId: 1,
+        staffId: 1,
+        date: "2024-07-15",
+        timeSlot: "10:00",
+        notes: "Test"
+      });
+    
+    expect(res.status).toBe(201);
+    expect(res.body).toHaveProperty("id");
+    expect(res.body.status).toBe("pending");
+  });
+
+  it("should reject without auth", async () => {
+    const res = await request(app)
+      .post("/api/appointments")
+      .send({ customerId: 1 });
+    
+    expect(res.status).toBe(401);
+  });
+});
+```
+
+**Priority:** 🔴 CRITICAL - At minimum add API tests for critical flows
+
+---
+
+### 3. Appointment Conflict Detection Missing
+
+**Problem:** Staff can be double-booked, same time slot given to multiple customers
+
+**Implementation (appointments.ts):**
+
+```typescript
+import { eq, and, lte, gte } from "drizzle-orm";
+
+async function checkConflict(
+  staffId: number, 
+  date: string, 
+  timeSlot: string, 
+  durationMinutes: number
+) {
+  const [service] = await db
+    .select({ durationMinutes: servicesTable.durationMinutes })
+    .from(servicesTable)
+    .where(eq(servicesTable.id, serviceId));
+
+  const slotMinutes = timeSlot.split(":").reduce((h, m) => h * 60 + parseInt(m));
+  const endMinutes = slotMinutes + (service?.durationMinutes ?? 30);
+
+  // Get all appointments for this staff on this date
+  const conflicts = await db
+    .select()
+    .from(appointmentsTable)
+    .where(
+      and(
+        eq(appointmentsTable.staffId, staffId),
+        eq(appointmentsTable.date, date),
+        eq(appointmentsTable.status, "confirmed") // Don't count cancelled
+      )
+    );
+
+  for (const conflict of conflicts) {
+    const existingMinutes = conflict.timeSlot.split(":").reduce((h, m) => h * 60 + parseInt(m));
+    const existingEnd = existingMinutes + (service?.durationMinutes ?? 30);
+    
+    if (slotMinutes < existingEnd && endMinutes > existingMinutes) {
+      return true; // Conflict detected
+    }
+  }
+  return false;
+}
+
+// In POST /appointments
+router.post("/appointments", requireAuth, async (req, res) => {
+  const parsed = CreateAppointmentBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  // Check for conflicts
+  const hasConflict = await checkConflict(
+    parsed.data.staffId,
+    parsed.data.date,
+    parsed.data.timeSlot,
+    30 // TODO: fetch from service
+  );
+
+  if (hasConflict) {
+    res.status(409).json({ error: "This time slot is unavailable for selected staff" });
+    return;
+  }
+
+  // Continue with booking...
+});
+```
+
+**Priority:** 🔴 CRITICAL - Core business logic
+
+---
+
+### 4. Payments Not Linked to Appointments
+
+**Problem:** Payments are in-memory only, not persisted, not linked to appointments
+
+**Schema Addition (lib/db/src/schema/payments.ts):**
+
+```typescript
+import { pgTable, text, serial, timestamp, integer, real } from "drizzle-orm/pg-core";
+
+export const paymentsTable = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  appointmentId: integer("appointment_id"), // optional, allows partial payments
+  customerId: integer("customer_id").notNull(),
+  amountKes: integer("amount_kes").notNull(),
+  method: text("method").notNull(), // "mpesa", "cash", "card"
+  status: text("status").notNull(), // "pending", "success", "failed"
+  mpesaCheckoutId: text("mpesa_checkout_id"),
+  transactionRef: text("transaction_ref"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+});
+```
+
+**Update mpesa.ts route:**
+
+```typescript
+import { db, paymentsTable, appointmentsTable } from "@workspace/db";
+
+router.post("/mpesa/stk-push", async (req, res) => {
+  const parsed = InitiateMpesaPaymentBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: "Invalid request" }); return; }
+
+  // Create payment record BEFORE initiating M-Pesa
+  const [payment] = await db.insert(paymentsTable).values({
+    customerId: parsed.data.customerId,
+    appointmentId: parsed.data.appointmentId, // new field
+    amountKes: parsed.data.amountKes,
+    method: "mpesa",
+    status: "pending",
+    mpesaCheckoutId: "", // Will be filled below
+  }).returning();
+
+  // ... rest of M-Pesa initiation ...
+  
+  // Update with checkout ID
+  await db.update(paymentsTable)
+    .set({ mpesaCheckoutId: checkoutRequestId })
+    .where(eq(paymentsTable.id, payment.id));
+});
+
+// Mark payment as complete
+router.post("/mpesa/confirm", async (req, res) => {
+  const { checkoutRequestId, resultCode } = req.body;
+  
+  const [payment] = await db
+    .select()
+    .from(paymentsTable)
+    .where(eq(paymentsTable.mpesaCheckoutId, checkoutRequestId));
+
+  if (resultCode === "0") { // Success
+    await db.update(paymentsTable)
+      .set({ status: "success", completedAt: new Date() })
+      .where(eq(paymentsTable.id, payment.id));
+
+    // Auto-confirm appointment if linked
+    if (payment.appointmentId) {
+      await db.update(appointmentsTable)
+        .set({ status: "confirmed" })
+        .where(eq(appointmentsTable.id, payment.appointmentId));
+    }
+  } else {
+    await db.update(paymentsTable)
+      .set({ status: "failed" })
+      .where(eq(paymentsTable.id, payment.id));
+  }
+});
+```
+
+**Priority:** 🔴 CRITICAL - Financial tracking essential
+
+---
+
+### 5. Auth Flow Not Creating Customer Record
+
+**Problem:** New registered users don't become customers, can't book or use portal
+
+**Update auth.ts:**
+
+```typescript
+import { db, usersTable, customersTable } from "@workspace/db";
+
+router.post("/auth/register", async (req, res) => {
+  const parsed = RegisterInput.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  const existing = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.email, parsed.data.email));
+  
+  if (existing.length > 0) { 
+    res.status(409).json({ error: "Email already registered" }); 
+    return; 
+  }
+
+  const hashedPassword = await bcrypt.hash(parsed.data.password, 10);
+
+  const [user] = await db.insert(usersTable).values({
+    email: parsed.data.email,
+    password: hashedPassword,
+    role: "user",
+  }).returning();
+
+  // NEW: Create corresponding customer record
+  const [customer] = await db.insert(customersTable).values({
+    name: parsed.data.name || parsed.data.email.split("@")[0],
+    phone: parsed.data.phone || "",
+    email: parsed.data.email,
+  }).returning();
+
+  req.session.userId = user.id;
+  req.session.customerId = customer.id;
+
+  res.status(201).json(AuthUser.parse({
+    id: user.id,
+    email: user.email,
+    customerId: customer.id,
+    name: customer.name,
+    role: user.role,
+  }));
+});
+```
+
+**Priority:** 🔴 CRITICAL - Core user flow
+
+---
+
+## 🟠 HIGH PRIORITY (Implement Soon)
+
+### 6. Email Notifications
+
+**Setup:**
+```bash
+pnpm add nodemailer zod-nodemailer
+pnpm add -D @types/nodemailer
+```
+
+**Create lib/emails/client.ts:**
+```typescript
+import nodemailer from "nodemailer";
+
+const transporter = nodemailer.createTransport({
+  service: "gmail", // or SendGrid
+  auth: {
+    user: process.env.EMAIL_FROM,
+    pass: process.env.EMAIL_PASSWORD,
+  },
+});
+
+export async function sendWelcomeEmail(email: string, name: string) {
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: "Welcome to Tally's Barbershop",
+    html: `<h1>Welcome, ${name}!</h1><p>Your account is ready.</p>`,
+  });
+}
+
+export async function sendAppointmentConfirmation(
+  email: string,
+  { customerName, serviceName, date, timeSlot, staffName }: any
+) {
+  await transporter.sendMail({
+    from: process.env.EMAIL_FROM,
+    to: email,
+    subject: "Appointment Confirmed",
+    html: `
+      <h2>Your appointment is confirmed!</h2>
+      <p><strong>${serviceName}</strong></p>
+      <p>${date} at ${timeSlot}</p>
+      <p>With ${staffName}</p>
+    `,
+  });
+}
+```
+
+**Call in auth.ts:**
+```typescript
+await sendWelcomeEmail(user.email, customer.name);
+```
+
+**Call in appointments.ts:**
+```typescript
+await sendAppointmentConfirmation(customer.email, enrichedAppt);
+```
+
+**Priority:** 🟠 HIGH - Customer engagement critical
+
+---
+
+### 7. Appointment Reminders via Queue
+
+**Setup:**
+```bash
+pnpm add bullmq redis
+```
+
+**Create lib/queue/reminder-queue.ts:**
+```typescript
+import { Queue, Worker } from "bullmq";
+import { sendWhatsAppMessage } from "../whatsapp";
+
+const reminderQueue = new Queue("appointment-reminders", {
+  connection: { host: process.env.REDIS_HOST || "localhost" },
+});
+
+export async function scheduleReminder(appointmentId: number, appointmentDate: string) {
+  const [dateStr, timeStr] = [appointmentDate, "10:00"];
+  const reminderTime = new Date(`${dateStr}T${timeStr}`);
+  reminderTime.setHours(reminderTime.getHours() - 24); // 24 hours before
+
+  await reminderQueue.add(
+    "send-reminder",
+    { appointmentId },
+    { scheduledAt: reminderTime.getTime() }
+  );
+}
+
+export const reminderWorker = new Worker("appointment-reminders", async (job) => {
+  const { appointmentId } = job.data;
+  
+  const [appt] = await db.select().from(appointmentsTable)
+    .where(eq(appointmentsTable.id, appointmentId));
+  
+  const [customer] = await db.select().from(customersTable)
+    .where(eq(customersTable.id, appt.customerId));
+
+  if (customer.phone) {
+    await sendWhatsAppMessage(
+      customer.phone,
+      `Hi ${customer.name}, reminder: your appointment at Tally's tomorrow at ${appt.timeSlot}`
+    );
+  }
+}, { connection: { host: process.env.REDIS_HOST || "localhost" } });
+```
+
+**Priority:** 🟠 HIGH - Reduces no-shows
+
+---
+
+### 8. Pagination on All List Endpoints
+
+**Pattern to implement everywhere:**
+
+```typescript
+router.get("/appointments", async (req, res) => {
+  const { limit = 20, offset = 0 } = req.query;
+  const pageLimit = Math.min(parseInt(limit as string) || 20, 100);
+  const pageOffset = Math.max(parseInt(offset as string) || 0, 0);
+
+  const [rows, [{ count }]] = await Promise.all([
+    db.select().from(appointmentsTable)
+      .limit(pageLimit)
+      .offset(pageOffset),
+    db.select({ count: sql`count(*)` }).from(appointmentsTable),
+  ]);
+
+  res.json({
+    data: rows,
+    pagination: {
+      total: count,
+      limit: pageLimit,
+      offset: pageOffset,
+      hasMore: pageOffset + pageLimit < count,
+    },
+  });
+});
+```
+
+**Add to OpenAPI spec:**
+```yaml
+parameters:
+  - name: limit
+    in: query
+    schema: { type: integer, default: 20, maximum: 100 }
+  - name: offset
+    in: query
+    schema: { type: integer, default: 0 }
+```
+
+**Priority:** 🟠 HIGH - Scalability
+
+---
+
+## 🟡 MEDIUM PRIORITY (Nice to Have)
+
+### 9. Search/Filtering
+
+**Enhanced GET /customers:**
+```typescript
+const { search, status } = req.query;
+
+let query = db.select().from(customersTable);
+
+if (search) {
+  // Fuzzy search by name or phone
+  query = query.where(
+    or(
+      like(customersTable.name, `%${search}%`),
+      like(customersTable.phone, `%${search}%`)
+    )
+  );
+}
+
+const results = await query;
+```
+
+**Add Fuse.js for client-side:**
+```bash
+pnpm add fuse.js
+```
+
+**Priority:** 🟡 MEDIUM - Admin usability
+
+---
+
+### 10. Audit Logs
+
+**Schema (lib/db/src/schema/audit-logs.ts):**
+```typescript
+export const auditLogsTable = pgTable("audit_logs", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  action: text("action").notNull(), // "create", "update", "delete"
+  table: text("table").notNull(),
+  recordId: integer("record_id"),
+  oldValues: text("old_values"), // JSON
+  newValues: text("new_values"), // JSON
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+```
+
+**Middleware to log all mutations:**
+```typescript
+export function auditLog(action: "create" | "update" | "delete") {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const originalJson = res.json;
+    res.json = function(data) {
+      if ([201, 200].includes(res.statusCode)) {
+        db.insert(auditLogsTable).values({
+          userId: req.session?.userId,
+          action,
+          table: req.route.path,
+          recordId: data?.id,
+          newValues: JSON.stringify(data),
+        });
+      }
+      return originalJson.call(this, data);
+    };
+    next();
+  };
+}
+```
+
+**Priority:** 🟡 MEDIUM - Compliance
+
+---
+
+## 🔵 LOW PRIORITY (Enhancement)
+
+### 11. Advanced Analytics
+
+Add these to dashboard:
+```typescript
+// Weekly comparison
+export async function getWeeklyComparison() {
+  const thisWeek = /* ... */;
+  const lastWeek = /* ... */;
+  return { thisWeek, lastWeek, change: ((thisWeek - lastWeek) / lastWeek) * 100 };
+}
+
+// Customer retention (% who returned after first visit)
+export async function getRetentionRate() {
+  const returning = await db.select().from(customersTable)
+    .where(gt(customersTable.totalVisits, 1));
+  const total = await db.select().from(customersTable);
+  return (returning.length / total.length) * 100;
+}
+
+// Staff utilization (appointments / available hours)
+export async function getStaffUtilization(staffId: number) {
+  const completed = await db.select().from(appointmentsTable)
+    .where(and(eq(appointmentsTable.staffId, staffId), eq(appointmentsTable.status, "completed")));
+  // ...
+}
+```
+
+**Priority:** 🔵 LOW - Growth optimization
+
+---
+
+### 12. Dark Mode Toggle
+
+**Add to navbar.tsx:**
+```typescript
+import { Moon, Sun } from "lucide-react";
+
+export function DarkModeToggle() {
+  const [isDark, setIsDark] = useState(() => 
+    document.documentElement.classList.contains("dark")
+  );
+
+  const toggle = () => {
+    document.documentElement.classList.toggle("dark");
+    setIsDark(!isDark);
+    localStorage.setItem("theme", isDark ? "light" : "dark");
+  };
+
+  return (
+    <button onClick={toggle} className="p-2">
+      {isDark ? <Sun /> : <Moon />}
+    </button>
+  );
+}
+```
+
+**Priority:** 🔵 LOW - UI Polish
+
+---
+
+### 13. i18n (Swahili Support)
+
+**Setup:**
+```bash
+pnpm add i18next react-i18next
+```
+
+**Create i18n config:**
+```typescript
+import i18n from "i18next";
+import { initReactI18next } from "react-i18next";
+
+i18n.use(initReactI18next).init({
+  resources: {
+    en: { translation: require("./en.json") },
+    sw: { translation: require("./sw.json") },
+  },
+  lng: "en",
+  fallbackLng: "en",
+});
+
+export default i18n;
+```
+
+**Usage in components:**
+```typescript
+import { useTranslation } from "react-i18next";
+
+export function Header() {
+  const { t } = useTranslation();
+  return <h1>{t("welcome")}</h1>;
+}
+```
+
+**Priority:** 🔵 LOW - Future expansion
+
+---
+
+## ✅ Implementation Checklist
+
+**Week 1 (Critical):**
+- [ ] Add @middleware/requireAuth to all protected routes
+- [ ] Add appointment conflict detection
+- [ ] Create payments table and link to appointments
+- [ ] Fix auth flow to create customer record
+- [ ] Add basic API tests (Supertest)
+
+**Week 2 (High Priority):**
+- [ ] Email notifications setup
+- [ ] Appointment reminders queue (Bull + Redis)
+- [ ] Pagination on list endpoints
+- [ ] Audit logs table
+- [ ] Add CSRF protection
+
+**Week 3 (Nice to Have):**
+- [ ] Search/filtering improvements
+- [ ] Advanced dashboard analytics
+- [ ] Dark mode toggle
+- [ ] Loading states + skeleton screens
+- [ ] Swagger/Redoc API documentation
+
+**Week 4+ (Polish):**
+- [ ] i18n setup
+- [ ] File upload for photos
+- [ ] Error boundaries
+- [ ] Optimistic updates
+- [ ] Performance monitoring
+
+---
+
+## 📚 Useful Links & Patterns
+
+**Database Migrations:**
+```bash
+pnpm --filter @workspace/db run migrate
+```
+
+**Regenerate OpenAPI types:**
+```bash
+pnpm --filter @workspace/api-spec run codegen
+```
+
+**Add new package to workspace:**
+```bash
+pnpm add -w package-name
+pnpm add -D -w package-name # dev dependency
+```
+
+**Type-safe environment variables:**
+```typescript
+// env.ts
+import { z } from "zod";
+
+const envSchema = z.object({
+  DATABASE_URL: z.string().url(),
+  SESSION_SECRET: z.string().min(32),
+  NODE_ENV: z.enum(["development", "production"]),
+});
+
+export const env = envSchema.parse(process.env);
+```
