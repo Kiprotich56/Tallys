@@ -23,6 +23,7 @@ const staffSchema = z.object({
   name: z.string().min(1, "Name is required"),
   role: z.string().min(1, "Role is required"),
   bio: z.string().optional(),
+  photoUrl: z.string().url("Must be a valid URL").optional().or(z.literal("")),
   commissionPct: z.coerce.number().min(0).max(100),
   isActive: z.boolean().default(true),
   specializationsRaw: z.string().default(""),
@@ -45,7 +46,7 @@ export default function AdminStaff() {
 
   const form = useForm<StaffFormValues>({
     resolver: zodResolver(staffSchema),
-    defaultValues: { name: "", role: "Barber", bio: "", commissionPct: 50, isActive: true, specializationsRaw: "" },
+    defaultValues: { name: "", role: "Barber", bio: "", photoUrl: "", commissionPct: 50, isActive: true, specializationsRaw: "" },
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getListStaffQueryKey() });
@@ -54,6 +55,7 @@ export default function AdminStaff() {
     name: values.name,
     role: values.role,
     bio: values.bio,
+    photoUrl: values.photoUrl || null,
     commissionPct: values.commissionPct,
     isActive: values.isActive,
     specializations: values.specializationsRaw
@@ -83,6 +85,7 @@ export default function AdminStaff() {
       name: member.name,
       role: member.role,
       bio: member.bio || "",
+      photoUrl: member.photoUrl || "",
       commissionPct: member.commissionPct ?? 50,
       isActive: member.isActive,
       specializationsRaw: member.specializations?.join(", ") ?? "",
@@ -92,7 +95,7 @@ export default function AdminStaff() {
 
   const openNewDialog = () => {
     setEditingId(null);
-    form.reset({ name: "", role: "Barber", bio: "", commissionPct: 50, isActive: true, specializationsRaw: "" });
+    form.reset({ name: "", role: "Barber", bio: "", photoUrl: "", commissionPct: 50, isActive: true, specializationsRaw: "" });
     setIsDialogOpen(true);
   };
 
@@ -123,7 +126,7 @@ export default function AdminStaff() {
               <Plus className="w-4 h-4" /> Add Staff Member
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingId ? "Edit Staff Member" : "Add New Staff Member"}</DialogTitle>
             </DialogHeader>
@@ -133,14 +136,24 @@ export default function AdminStaff() {
                   <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Full Name</FormLabel>
-                      <FormControl><Input placeholder="John Doe" {...field} /></FormControl>
+                      <FormControl><Input placeholder="Jane Doe" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="role" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Role</FormLabel>
-                      <FormControl><Input placeholder="e.g. Master Barber" {...field} /></FormControl>
+                      <FormControl>
+                        <select {...field} className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm">
+                          <option>Barber</option>
+                          <option>Master Barber</option>
+                          <option>Stylist</option>
+                          <option>Hair Stylist</option>
+                          <option>Beauty Therapist</option>
+                          <option>Nail Technician</option>
+                          <option>Receptionist</option>
+                        </select>
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -152,17 +165,30 @@ export default function AdminStaff() {
                     <FormMessage />
                   </FormItem>
                 )} />
+                <FormField control={form.control} name="photoUrl" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Photo URL (Optional)</FormLabel>
+                    <FormControl><Input placeholder="https://example.com/photo.jpg" {...field} /></FormControl>
+                    <FormMessage />
+                    {field.value && (
+                      <div className="mt-2 flex items-center gap-3">
+                        <img src={field.value} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-border" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                        <span className="text-xs text-muted-foreground">Photo preview</span>
+                      </div>
+                    )}
+                  </FormItem>
+                )} />
                 <FormField control={form.control} name="commissionPct" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Commission (%)</FormLabel>
-                    <FormControl><Input type="number" {...field} /></FormControl>
+                    <FormControl><Input type="number" min={0} max={100} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
                 <FormField control={form.control} name="bio" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Bio (Optional)</FormLabel>
-                    <FormControl><Textarea placeholder="Short biography..." {...field} /></FormControl>
+                    <FormControl><Textarea placeholder="Short biography..." rows={3} {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )} />
@@ -170,7 +196,7 @@ export default function AdminStaff() {
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
                       <FormLabel className="text-base">Active</FormLabel>
-                      <p className="text-sm text-muted-foreground">Staff appears in booking flow</p>
+                      <p className="text-sm text-muted-foreground">Staff appears in the booking flow</p>
                     </div>
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -189,7 +215,6 @@ export default function AdminStaff() {
         </Dialog>
       </div>
 
-      {/* Delete Confirmation */}
       <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <DialogContent>
           <DialogHeader>
@@ -233,7 +258,13 @@ export default function AdminStaff() {
                   <td className="p-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-primary/20 flex-shrink-0 overflow-hidden">
-                        <img src={member.photoUrl || `/team-1.png`} alt={member.name} className="w-full h-full object-cover" />
+                        {member.photoUrl ? (
+                          <img src={member.photoUrl} alt={member.name} className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-primary font-bold text-sm">
+                            {member.name.charAt(0)}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <div className="font-bold">{member.name}</div>
@@ -282,7 +313,7 @@ export default function AdminStaff() {
                   </td>
                 </tr>
               ))}
-              {filteredStaff?.length === 0 && (
+              {!isLoading && filteredStaff?.length === 0 && (
                 <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No staff found.</td></tr>
               )}
             </tbody>

@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { Scissors, Calendar, Users, LayoutDashboard, Star, LogOut, ChevronRight, Database } from "lucide-react";
+import { Scissors, Calendar, Users, LayoutDashboard, Star, LogOut, ChevronRight, Database, MessageSquare } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { useToast } from "@/hooks/use-toast";
 
@@ -9,6 +9,7 @@ const navItems = [
   { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/services", label: "Services", icon: Scissors },
   { href: "/admin/staff", label: "Staff", icon: Star },
+  { href: "/admin/reviews", label: "Reviews", icon: MessageSquare },
   { href: "/admin/database", label: "Database", icon: Database },
 ];
 

@@ -23,6 +23,7 @@ import AdminCustomers from "@/pages/admin/customers";
 import AdminServices from "@/pages/admin/services";
 import AdminStaff from "@/pages/admin/staff";
 import AdminDatabase from "@/pages/admin/database";
+import AdminReviews from "@/pages/admin/reviews";
 
 // Layouts
 import PublicLayout from "@/components/layout/public-layout";
@@ -67,6 +68,7 @@ function Router() {
               <Route path="/customers" component={AdminCustomers} />
               <Route path="/services" component={AdminServices} />
               <Route path="/staff" component={AdminStaff} />
+              <Route path="/reviews" component={AdminReviews} />
               <Route path="/database" component={AdminDatabase} />
               <Route component={NotFound} />
             </Switch>

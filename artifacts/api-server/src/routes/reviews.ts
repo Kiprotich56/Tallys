@@ -11,6 +11,7 @@ import {
   HideReviewParams,
   HideReviewResponse,
 } from "@workspace/api-zod";
+import { requireAdmin } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -71,6 +72,12 @@ router.patch("/reviews/:id/hide", async (req, res): Promise<void> => {
   const [review] = await db.update(reviewsTable).set({ status: "hidden" }).where(eq(reviewsTable.id, params.data.id)).returning();
   if (!review) { res.status(404).json({ error: "Review not found" }); return; }
   res.json(HideReviewResponse.parse(await enrichReview(review)));
+});
+
+router.get("/admin/reviews", requireAdmin, async (_req, res): Promise<void> => {
+  const rows = await db.select().from(reviewsTable).orderBy(reviewsTable.createdAt);
+  const enriched = await Promise.all(rows.map(enrichReview));
+  res.json(enriched);
 });
 
 export default router;
