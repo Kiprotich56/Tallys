@@ -85,6 +85,16 @@ export default function AdminAppointments() {
     if (action === 'complete') completeAppointment.mutate({ id }, { onSuccess });
   };
 
+  const handleMarkPayment = async (id: number, paymentStatus: 'paid' | 'pending') => {
+    await fetch(`/api/appointments/${id}/payment`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ paymentStatus }),
+    });
+    invalidate();
+  };
+
   const onCreateSubmit = (values: CreateForm) => {
     createAppointment.mutate({ data: values }, {
       onSuccess: () => {
@@ -165,12 +175,13 @@ export default function AdminAppointments() {
                 <th className="p-4 font-medium">Service</th>
                 <th className="p-4 font-medium">Staff</th>
                 <th className="p-4 font-medium">Status</th>
+                <th className="p-4 font-medium">Payment</th>
                 <th className="p-4 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {isLoading ? (
-                <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Loading appointments...</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">Loading appointments...</td></tr>
               ) : filteredAppointments?.map(app => (
                 <tr key={app.id} className="hover:bg-accent/5">
                   <td className="p-4">
@@ -199,6 +210,15 @@ export default function AdminAppointments() {
                       {app.status}
                     </span>
                   </td>
+                  <td className="p-4">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wider ${
+                      (app as any).paymentStatus === 'paid'
+                        ? 'bg-green-900/30 text-green-500'
+                        : 'bg-amber-900/30 text-amber-500'
+                    }`}>
+                      {(app as any).paymentStatus === 'paid' ? '✓ Paid' : 'Pending'}
+                    </span>
+                  </td>
                   <td className="p-4 text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -220,6 +240,16 @@ export default function AdminAppointments() {
                             <Play className="mr-2 h-4 w-4" /> Mark Completed
                           </DropdownMenuItem>
                         )}
+                        {(app as any).paymentStatus !== 'paid' && app.status !== 'cancelled' && (
+                          <DropdownMenuItem onClick={() => handleMarkPayment(app.id, 'paid')} className="text-primary">
+                            <Check className="mr-2 h-4 w-4" /> Mark Payment Received
+                          </DropdownMenuItem>
+                        )}
+                        {(app as any).paymentStatus === 'paid' && (
+                          <DropdownMenuItem onClick={() => handleMarkPayment(app.id, 'pending')} className="text-muted-foreground">
+                            <X className="mr-2 h-4 w-4" /> Revert Payment
+                          </DropdownMenuItem>
+                        )}
                         {(app.status === 'pending' || app.status === 'confirmed') && (
                           <DropdownMenuItem onClick={() => handleAction(app.id, 'cancel')} className="text-red-500">
                             <X className="mr-2 h-4 w-4" /> Cancel
@@ -231,7 +261,7 @@ export default function AdminAppointments() {
                 </tr>
               ))}
               {!isLoading && filteredAppointments?.length === 0 && (
-                <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No appointments found.</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No appointments found.</td></tr>
               )}
             </tbody>
           </table>

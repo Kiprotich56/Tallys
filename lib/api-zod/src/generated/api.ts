@@ -428,6 +428,7 @@ export const ListAppointmentsResponseItem = zod.object({
   "date": zod.string(),
   "timeSlot": zod.string(),
   "status": zod.string(),
+  "paymentStatus": zod.string().optional(),
   "notes": zod.string().nullish(),
   "totalKes": zod.number(),
   "customerName": zod.string().nullish(),

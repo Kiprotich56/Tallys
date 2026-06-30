@@ -21,18 +21,21 @@ function createTransporter() {
   });
 }
 
-async function send(to: string, subject: string, html: string): Promise<boolean> {
+async function send(to: string, subject: string, html: string, textPreview?: string): Promise<boolean> {
   const transporter = createTransporter();
   if (!transporter) {
-    logger.info({ to, subject }, "[EMAIL] SMTP not configured — would send email");
+    logger.warn(
+      { to, subject, preview: textPreview?.slice(0, 200) },
+      "[EMAIL] ⚠️  SMTP not configured (set GMAIL_USER + GMAIL_APP_PASSWORD). Email NOT sent."
+    );
     return false;
   }
   try {
     await transporter.sendMail({ from: FROM, to, subject, html });
-    logger.info({ to, subject }, "[EMAIL] Sent successfully");
+    logger.info({ to, subject }, "[EMAIL] ✓ Sent successfully");
     return true;
   } catch (err) {
-    logger.error({ err, to, subject }, "[EMAIL] Failed to send");
+    logger.error({ err, to, subject }, "[EMAIL] ✗ Failed to send");
     return false;
   }
 }
@@ -70,7 +73,9 @@ export async function sendVerificationEmail(
       </div>
       ${FOOTER}
     </div>`;
-  return send(to, "Verify your email – Tally's Barbershop", html);
+  // Log the URL so admin can manually share it when SMTP is not configured
+  logger.info({ verificationUrl: data.verificationUrl }, "[EMAIL] Verification URL (use this if SMTP not configured)");
+  return send(to, "Verify your email – Tally's Barbershop", html, `Verify URL: ${data.verificationUrl}`);
 }
 
 export async function sendPasswordResetEmail(

@@ -254,10 +254,18 @@ export default function PortalDashboard() {
                     <Clock className="w-4 h-4" /> {app.date} at {app.timeSlot}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">with {app.staffName}</p>
+                  <p className="text-sm font-semibold text-primary mt-1">KSh {app.totalKes.toLocaleString()}</p>
                 </div>
                 <div className="flex flex-col sm:items-end gap-2">
                   <span className="inline-block px-2 py-1 bg-primary/10 text-primary text-xs rounded uppercase tracking-wider font-bold">
                     {app.status}
+                  </span>
+                  <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${
+                    (app as any).paymentStatus === 'paid'
+                      ? 'bg-green-900/30 text-green-500'
+                      : 'bg-amber-900/30 text-amber-400'
+                  }`}>
+                    {(app as any).paymentStatus === 'paid' ? '✓ Payment Received' : '⏳ Payment Pending at Studio'}
                   </span>
                   <Button variant="outline" size="sm" onClick={() => setCancelId(app.id)} disabled={cancelAppointment.isPending}>
                     Cancel

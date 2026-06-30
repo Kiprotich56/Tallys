@@ -9,10 +9,15 @@ import { sendVerificationEmail, sendPasswordResetEmail } from "../lib/email";
 
 const router = Router();
 
-// CLIENT_URL = the frontend (Vercel / browser-facing domain)
+// CLIENT_URL = the frontend (browser-facing domain)
 // API_URL    = this Express server's own public URL (used in email links that call /api/*)
-const CLIENT_URL = process.env.CLIENT_URL ?? process.env.APP_URL ?? "http://localhost:3000";
-const API_URL = process.env.API_URL ?? `http://localhost:${process.env.PORT ?? 8080}`;
+// On Replit, both the frontend and API are served on the same domain via the proxy.
+const CLIENT_URL = process.env.CLIENT_URL ?? process.env.APP_URL ?? (
+  process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:3000"
+);
+const API_URL = process.env.API_URL ?? process.env.APP_URL ?? (
+  process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : `http://localhost:${process.env.PORT ?? 8080}`
+);
 
 function generateToken() {
   return crypto.randomBytes(32).toString("hex");

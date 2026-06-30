@@ -20,7 +20,7 @@ import {
   CompleteAppointmentParams,
   CompleteAppointmentResponse,
 } from "@workspace/api-zod";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireAdmin } from "../middlewares/auth";
 import { bookingLimiter } from "../lib/rate-limit";
 import { sendBookingConfirmationEmail, sendBookingCancellationEmail } from "../lib/email";
 
@@ -38,6 +38,7 @@ async function enrichAppointment(appt: typeof appointmentsTable.$inferSelect) {
     date: appt.date,
     timeSlot: appt.timeSlot,
     status: appt.status,
+    paymentStatus: (appt as any).paymentStatus ?? "pending",
     notes: appt.notes ?? null,
     totalKes: appt.totalKes,
     customerName: customer?.name ?? null,
@@ -60,6 +61,7 @@ router.get("/appointments", async (req, res): Promise<void> => {
       date: appointmentsTable.date,
       timeSlot: appointmentsTable.timeSlot,
       status: appointmentsTable.status,
+      paymentStatus: (appointmentsTable as any).paymentStatus,
       notes: appointmentsTable.notes,
       totalKes: appointmentsTable.totalKes,
       createdAt: appointmentsTable.createdAt,
@@ -78,14 +80,22 @@ router.get("/appointments", async (req, res): Promise<void> => {
   if (filters.date) filtered = filtered.filter(r => r.date === filters.date);
   if (filters.staffId) filtered = filtered.filter(r => r.staffId === Number(filters.staffId));
 
-  res.json(ListAppointmentsResponse.parse(filtered.map(r => ({
-    ...r,
+  res.json(filtered.map(r => ({
+    id: r.id,
+    customerId: r.customerId,
+    serviceId: r.serviceId,
+    staffId: r.staffId,
+    date: r.date,
+    timeSlot: r.timeSlot,
+    status: r.status,
+    paymentStatus: r.paymentStatus ?? "pending",
     notes: r.notes ?? null,
+    totalKes: r.totalKes,
+    customerName: r.customerName ?? null,
     serviceName: r.serviceName ?? null,
     staffName: r.staffName ?? null,
-    customerName: r.customerName ?? null,
     createdAt: r.createdAt.toISOString(),
-  }))));
+  })));
 });
 
 router.post("/appointments", requireAuth, bookingLimiter, async (req, res): Promise<void> => {
@@ -192,6 +202,22 @@ router.patch("/appointments/:id/confirm", async (req, res): Promise<void> => {
   const [appt] = await db.update(appointmentsTable).set({ status: "confirmed" }).where(eq(appointmentsTable.id, params.data.id)).returning();
   if (!appt) { res.status(404).json({ error: "Appointment not found" }); return; }
   res.json(ConfirmAppointmentResponse.parse(await enrichAppointment(appt)));
+});
+
+router.patch("/appointments/:id/payment", requireAdmin, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { paymentStatus } = req.body;
+  if (!["pending", "paid"].includes(paymentStatus)) {
+    res.status(400).json({ error: "paymentStatus must be 'pending' or 'paid'" });
+    return;
+  }
+  const [appt] = await db.update(appointmentsTable)
+    .set({ paymentStatus } as any)
+    .where(eq(appointmentsTable.id, id))
+    .returning();
+  if (!appt) { res.status(404).json({ error: "Appointment not found" }); return; }
+  res.json(await enrichAppointment(appt));
 });
 
 router.patch("/appointments/:id/complete", async (req, res): Promise<void> => {

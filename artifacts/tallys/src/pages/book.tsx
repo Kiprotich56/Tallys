@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "wouter";
+import { Link } from "wouter";
 import { format } from "date-fns";
 import {
   useListServices,
@@ -7,10 +7,7 @@ import {
   useGetStaffAvailability,
   useCreateAppointment,
   useCreateCustomer,
-  useInitiateMpesaPayment,
-  useGetMpesaPaymentStatus,
   getGetStaffAvailabilityQueryKey,
-  getGetMpesaPaymentStatusQueryKey,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
@@ -26,16 +23,13 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Smartphone,
   Loader2,
-  AlertCircle,
-  RefreshCw,
+  Clock,
 } from "lucide-react";
 
-// Steps: 1=Service, 2=Staff, 3=DateTime, 4=Details, 5=Payment, 6=Confirm
+// Steps: 1=Service, 2=Staff, 3=DateTime, 4=Details, 5=Confirm
 export default function BookPage() {
   const [step, setStep] = useState(1);
-  const [, setLocation] = useLocation();
   const { user } = useAuth();
 
   // Booking state
@@ -44,7 +38,6 @@ export default function BookPage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
   const [customerData, setCustomerData] = useState({ name: "", phone: "", email: "", notes: "" });
-  const [createdAppointmentId, setCreatedAppointmentId] = useState<number | null>(null);
 
   // Pre-fill customer data from logged-in user
   useEffect(() => {
@@ -56,13 +49,6 @@ export default function BookPage() {
       }));
     }
   }, [user]);
-
-  // M-Pesa state
-  const [mpesaPhone, setMpesaPhone] = useState("");
-  const [checkoutRequestId, setCheckoutRequestId] = useState<string | null>(null);
-  const [paymentState, setPaymentState] = useState<"idle" | "waiting" | "success" | "failed">("idle");
-  const [paymentError, setPaymentError] = useState("");
-  const [isSimulated, setIsSimulated] = useState(false);
 
   const { data: services, isLoading: loadingServices } = useListServices();
   const { data: staff, isLoading: loadingStaff } = useListStaff();
@@ -76,40 +62,6 @@ export default function BookPage() {
 
   const createCustomer = useCreateCustomer();
   const createAppointment = useCreateAppointment();
-  const initiateMpesa = useInitiateMpesaPayment();
-
-  // Polling for payment status — only active while waiting
-  const mpesaStatusParams = { checkoutRequestId: checkoutRequestId! };
-  const { data: paymentStatus } = useGetMpesaPaymentStatus(
-    mpesaStatusParams,
-    {
-      query: {
-        enabled: !!checkoutRequestId && paymentState === "waiting",
-        refetchInterval: 3000,
-        refetchIntervalInBackground: false,
-        queryKey: getGetMpesaPaymentStatusQueryKey(mpesaStatusParams),
-      },
-    }
-  );
-
-  // React to polled payment status
-  useEffect(() => {
-    if (!paymentStatus) return;
-    if (paymentStatus.status === "success") {
-      setPaymentState("success");
-      setTimeout(() => setStep(6), 800);
-    } else if (paymentStatus.status === "failed") {
-      setPaymentState("failed");
-      setPaymentError(paymentStatus.resultDesc ?? "Payment was declined or cancelled. Please try again.");
-    }
-  }, [paymentStatus]);
-
-  // Sync M-Pesa phone from customer phone field
-  useEffect(() => {
-    if (customerData.phone && !mpesaPhone) {
-      setMpesaPhone(customerData.phone);
-    }
-  }, [customerData.phone]);
 
   const handleNext = () => setStep((s) => s + 1);
   const handlePrev = () => setStep((s) => s - 1);
@@ -132,9 +84,7 @@ export default function BookPage() {
     }
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    if (date < today) {
-      return;
-    }
+    if (date < today) return;
     setSelectedDate(date);
     setSelectedTimeSlot(null);
   };
@@ -144,7 +94,7 @@ export default function BookPage() {
     handleNext();
   };
 
-  // Step 4 → 5: create/find customer + appointment, then show payment
+  // Step 4 → 5: create/find customer + appointment, then show confirmation
   const handleDetailsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedServiceId || !selectedStaffId || !selectedDate || !selectedTimeSlot) return;
@@ -152,10 +102,8 @@ export default function BookPage() {
       let customerId: number;
 
       if (user?.customerId) {
-        // Already logged in — use existing customer record directly
         customerId = user.customerId;
       } else {
-        // Guest or no account — upsert customer by phone (safe to call multiple times)
         const customer = await createCustomer.mutateAsync({
           data: {
             name: customerData.name,
@@ -166,7 +114,7 @@ export default function BookPage() {
         customerId = customer.id;
       }
 
-      const appointment = await createAppointment.mutateAsync({
+      await createAppointment.mutateAsync({
         data: {
           customerId,
           serviceId: selectedServiceId,
@@ -177,46 +125,10 @@ export default function BookPage() {
         },
       });
 
-      setCreatedAppointmentId(appointment.id);
-      setMpesaPhone(customerData.phone);
       setStep(5);
     } catch {
       alert("Failed to reserve your slot. Please try again.");
     }
-  };
-
-  // Step 5: initiate M-Pesa STK Push
-  const handleMpesaPay = async () => {
-    const selectedService = services?.find((s) => s.id === selectedServiceId);
-    if (!selectedService) return;
-
-    setPaymentState("waiting");
-    setPaymentError("");
-    setCheckoutRequestId(null);
-
-    try {
-      const res = await initiateMpesa.mutateAsync({
-        data: {
-          phone: mpesaPhone,
-          amountKes: selectedService.priceKes,
-          accountRef: `TALLYS${createdAppointmentId ?? ""}`,
-          description: `Tally's - ${selectedService.name.slice(0, 13)}`,
-        },
-      });
-      setCheckoutRequestId(res.checkoutRequestId);
-      setIsSimulated(res.simulated ?? false);
-    } catch {
-      setPaymentState("failed");
-      setPaymentError("Could not reach M-Pesa. Please check your phone number and try again.");
-    }
-  };
-
-  const handleSkipPayment = () => setStep(6);
-
-  const handleRetryPayment = () => {
-    setPaymentState("idle");
-    setCheckoutRequestId(null);
-    setPaymentError("");
   };
 
   const getServiceName = () => services?.find((s) => s.id === selectedServiceId)?.name;
@@ -224,7 +136,7 @@ export default function BookPage() {
   const getServicePrice = () =>
     services?.find((s) => s.id === selectedServiceId)?.priceKes.toLocaleString();
 
-  const stepLabels = ["Service", "Professional", "Date & Time", "Your Details", "Payment"];
+  const stepLabels = ["Service", "Professional", "Date & Time", "Your Details"];
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-4xl">
@@ -461,7 +373,7 @@ export default function BookPage() {
                           <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Reserving slot...
                         </>
                       ) : (
-                        "Continue to Payment →"
+                        "Confirm Booking →"
                       )}
                     </Button>
                   </div>
@@ -488,150 +400,8 @@ export default function BookPage() {
           </div>
         )}
 
-        {/* ── STEP 5: M-Pesa Payment ── */}
+        {/* ── STEP 5: Confirmation ── */}
         {step === 5 && (
-          <div className="p-6 md:p-8 animate-in fade-in">
-            <div className="flex items-center mb-6">
-              {paymentState === "idle" && (
-                <Button variant="ghost" size="icon" onClick={handlePrev} className="mr-2">
-                  <ChevronLeft className="w-5 h-5" />
-                </Button>
-              )}
-              <h2 className="text-2xl font-serif font-bold flex items-center gap-2">
-                <Smartphone className="text-primary w-6 h-6" /> Pay via M-Pesa
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-              <div className="md:col-span-3">
-                {/* Idle — show form */}
-                {paymentState === "idle" && (
-                  <div className="space-y-6">
-                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-                      <p className="text-sm text-muted-foreground">
-                        Enter your M-Pesa phone number below. You'll receive an STK Push prompt on
-                        your phone to authorise the payment of{" "}
-                        <span className="text-primary font-bold">KSh {getServicePrice()}</span>.
-                      </p>
-                    </div>
-
-                    <div>
-                      <Label htmlFor="mpesa-phone">M-Pesa Phone Number *</Label>
-                      <Input
-                        id="mpesa-phone"
-                        required
-                        placeholder="0712 345 678"
-                        value={mpesaPhone}
-                        onChange={(e) => setMpesaPhone(e.target.value)}
-                        className="mt-1 text-lg tracking-wide"
-                      />
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Safaricom M-Pesa number (07XX or 01XX)
-                      </p>
-                    </div>
-
-                    <div className="flex flex-col gap-3">
-                      <Button
-                        className="w-full h-12 text-lg font-bold"
-                        onClick={handleMpesaPay}
-                        disabled={!mpesaPhone.trim()}
-                      >
-                        <Smartphone className="w-5 h-5 mr-2" />
-                        Pay KSh {getServicePrice()} via M-Pesa
-                      </Button>
-                      <button
-                        type="button"
-                        onClick={handleSkipPayment}
-                        className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors text-center"
-                      >
-                        Pay at the studio instead
-                      </button>
-                    </div>
-                  </div>
-                )}
-
-                {/* Waiting — spinner */}
-                {paymentState === "waiting" && (
-                  <div className="flex flex-col items-center justify-center py-12 text-center gap-6">
-                    <div className="relative">
-                      <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Smartphone className="w-10 h-10 text-primary" />
-                      </div>
-                      <Loader2 className="w-8 h-8 text-primary animate-spin absolute -top-1 -right-1" />
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold mb-2">M-Pesa prompt sent!</p>
-                      <p className="text-muted-foreground text-sm max-w-xs">
-                        {isSimulated
-                          ? "Demo mode — simulating payment approval in a few seconds..."
-                          : `Check your phone (${mpesaPhone}) and enter your M-Pesa PIN to complete payment.`}
-                      </p>
-                    </div>
-                    <div className="flex gap-2 items-center text-xs text-muted-foreground">
-                      <Loader2 className="w-3 h-3 animate-spin" />
-                      Waiting for confirmation...
-                    </div>
-                  </div>
-                )}
-
-                {/* Success */}
-                {paymentState === "success" && (
-                  <div className="flex flex-col items-center justify-center py-12 text-center gap-4">
-                    <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center">
-                      <CheckCircle2 className="w-10 h-10 text-green-500" />
-                    </div>
-                    <p className="text-lg font-bold text-green-500">Payment Successful!</p>
-                    <p className="text-muted-foreground text-sm">Redirecting to your confirmation...</p>
-                  </div>
-                )}
-
-                {/* Failed */}
-                {paymentState === "failed" && (
-                  <div className="space-y-4">
-                    <div className="flex flex-col items-center py-8 text-center gap-4">
-                      <div className="w-16 h-16 bg-destructive/10 rounded-full flex items-center justify-center">
-                        <AlertCircle className="w-8 h-8 text-destructive" />
-                      </div>
-                      <div>
-                        <p className="text-lg font-bold text-destructive mb-1">Payment Failed</p>
-                        <p className="text-muted-foreground text-sm max-w-xs">{paymentError}</p>
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-3">
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={handleRetryPayment}
-                      >
-                        <RefreshCw className="w-4 h-4 mr-2" /> Try Again
-                      </Button>
-                      <button
-                        type="button"
-                        onClick={handleSkipPayment}
-                        className="text-sm text-muted-foreground hover:text-foreground underline underline-offset-4 transition-colors text-center"
-                      >
-                        Skip — pay at the studio
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="md:col-span-2">
-                <BookingSummaryCard
-                  serviceName={getServiceName()}
-                  staffName={getStaffName()}
-                  date={selectedDate}
-                  timeSlot={selectedTimeSlot}
-                  priceKes={getServicePrice()}
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ── STEP 6: Confirmation ── */}
-        {step === 6 && (
           <div className="p-12 text-center animate-in zoom-in-95 duration-500">
             <div className="w-20 h-20 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle2 className="w-10 h-10 text-primary" />
@@ -643,17 +413,18 @@ export default function BookPage() {
               <span className="text-foreground font-semibold">{getStaffName()}</span> on{" "}
               {selectedDate ? format(selectedDate, "MMM do") : ""} at {selectedTimeSlot} is confirmed.
             </p>
-            {paymentState === "success" && (
-              <p className="text-green-500 text-sm mb-6 font-medium">
-                ✓ M-Pesa payment of KSh {getServicePrice()} received
-              </p>
-            )}
-            {paymentState !== "success" && (
-              <p className="text-muted-foreground text-sm mb-6">
-                Please complete payment of{" "}
-                <span className="text-primary font-semibold">KSh {getServicePrice()}</span> at the studio.
-              </p>
-            )}
+
+            {/* Payment pending notice */}
+            <div className="max-w-sm mx-auto mb-8 mt-4 bg-amber-900/20 border border-amber-700/40 rounded-lg p-4 flex items-start gap-3">
+              <Clock className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />
+              <div className="text-left">
+                <p className="text-amber-400 font-semibold text-sm">Payment Pending</p>
+                <p className="text-muted-foreground text-xs mt-0.5">
+                  Please pay <span className="text-foreground font-bold">KSh {getServicePrice()}</span> at the studio on arrival. Your booking is secured.
+                </p>
+              </div>
+            </div>
+
             <div className="flex justify-center gap-4">
               <Button asChild variant="outline">
                 <Link href="/">Return Home</Link>
@@ -707,6 +478,10 @@ function BookingSummaryCard({
           <div className="border-t border-border pt-4 mt-4 flex justify-between items-center">
             <div className="font-bold">Total</div>
             <div className="font-bold text-primary text-lg">KSh {priceKes ?? "—"}</div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-900/20 rounded px-3 py-2">
+            <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+            Pay at the studio on arrival
           </div>
         </div>
       </CardContent>
