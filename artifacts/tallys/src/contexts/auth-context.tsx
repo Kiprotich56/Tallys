@@ -37,7 +37,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Restore session on mount by calling /auth/me directly
   useEffect(() => {
-    fetch("/api/auth/me", { credentials: "include" })
+    const base = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+    fetch(`${base}/api/auth/me`, { credentials: "include" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => setUser(data ? mapToAuthUser(data) : null))
       .catch(() => setUser(null))

@@ -4,7 +4,9 @@ import "./index.css";
 
 import { setBaseUrl } from "@workspace/api-client-react";
 
-// Replace with your Render backend URL
-setBaseUrl("https://tallys-ne1s.onrender.com");
+const apiUrl = import.meta.env.VITE_API_URL as string | undefined;
+if (apiUrl) {
+  setBaseUrl(apiUrl);
+}
 
 createRoot(document.getElementById("root")!).render(<App />);

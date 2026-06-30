@@ -62,9 +62,11 @@ export default function LoginPage() {
         toast({ title: `Welcome to Tally's, ${user.name}!`, description: "Check your email to verify your account." });
         setLocation(redirect ?? "/portal");
       } else if (mode === "forgot") {
-        const res = await fetch("/api/auth/forgot-password", {
+        const base = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+        const res = await fetch(`${base}/api/auth/forgot-password`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          credentials: "include",
           body: JSON.stringify({ email }),
         });
         if (res.ok) {
