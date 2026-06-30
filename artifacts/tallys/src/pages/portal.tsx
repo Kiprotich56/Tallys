@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { Star, Calendar, Clock, Crown, History, LogOut, Scissors } from "lucide-react";
+import { Star, Calendar, Clock, Crown, History, LogOut, Mail, CheckCircle2, AlertCircle } from "lucide-react";
 import {
   useGetCustomer,
   useGetCustomerAppointments,
@@ -29,10 +29,28 @@ function calcProgress(tier: string, visits: number): number {
   return Math.round(((visits - min) / (max - min)) * 100);
 }
 
+type ResendState = "idle" | "sending" | "sent" | "error";
+
 export default function PortalDashboard() {
   const { user, logout } = useAuth();
   const [, setLocation] = useLocation();
   const [cancelId, setCancelId] = useState<number | null>(null);
+  const [resendState, setResendState] = useState<ResendState>("idle");
+
+  const handleResendVerification = async () => {
+    setResendState("sending");
+    try {
+      const base = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+      const res = await fetch(`${base}/api/auth/resend-verification`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (!res.ok) throw new Error();
+      setResendState("sent");
+    } catch {
+      setResendState("error");
+    }
+  };
 
   const customerId = user?.customerId ?? 0;
 
@@ -89,6 +107,46 @@ export default function PortalDashboard() {
           <LogOut className="w-4 h-4" /> Sign Out
         </Button>
       </div>
+
+      {/* Email verification banner */}
+      {user && !user.emailVerified && (
+        <div className="mb-8 flex items-start gap-3 border border-amber-500/40 bg-amber-500/10 rounded-lg px-5 py-4">
+          <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-amber-200">
+              Please verify your email address
+            </p>
+            <p className="text-xs text-amber-300/80 mt-0.5">
+              We sent a link to <strong>{user.email}</strong>. Check your inbox (and spam folder).
+            </p>
+          </div>
+          <div className="shrink-0">
+            {resendState === "sent" ? (
+              <span className="inline-flex items-center gap-1.5 text-xs text-green-400 font-medium">
+                <CheckCircle2 className="w-4 h-4" /> Sent!
+              </span>
+            ) : resendState === "error" ? (
+              <button
+                onClick={() => setResendState("idle")}
+                className="text-xs text-destructive underline"
+              >
+                Failed — try again
+              </button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-8 border-amber-500/40 text-amber-200 hover:bg-amber-500/20 hover:text-amber-100"
+                disabled={resendState === "sending"}
+                onClick={handleResendVerification}
+              >
+                <Mail className="w-3.5 h-3.5 mr-1.5" />
+                {resendState === "sending" ? "Sending…" : "Resend email"}
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
         {/* Upcoming appointments */}

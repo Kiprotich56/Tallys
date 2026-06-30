@@ -7,6 +7,7 @@ export interface AuthUser {
   role: "admin" | "customer";
   customerId: number | null;
   name: string;
+  emailVerified: boolean;
 }
 
 interface AuthContextValue {
@@ -28,6 +29,7 @@ function mapToAuthUser(data: any): AuthUser {
     role: data.role as "admin" | "customer",
     customerId: data.customerId ?? null,
     name: data.name ?? data.email,
+    emailVerified: data.emailVerified ?? false,
   };
 }
 
