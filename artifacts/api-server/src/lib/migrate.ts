@@ -71,8 +71,12 @@ export async function runMigrations() {
       CREATE INDEX IF NOT EXISTS idx_commissions_payment_status ON commissions(payment_status);
       CREATE INDEX IF NOT EXISTS idx_commissions_completed_at ON commissions(completed_at);
       CREATE INDEX IF NOT EXISTS idx_staff_portfolio_staff_id ON staff_portfolio(staff_id);
+      -- Appointment reminders
+      ALTER TABLE appointments ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN NOT NULL DEFAULT false;
+
       CREATE INDEX IF NOT EXISTS idx_appointments_staff_date ON appointments(staff_id, date);
       CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
+      CREATE INDEX IF NOT EXISTS idx_appointments_reminder ON appointments(date, reminder_sent);
       CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
     `);
     logger.info("Database migrations completed successfully");
