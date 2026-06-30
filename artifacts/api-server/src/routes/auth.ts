@@ -5,7 +5,7 @@ import { db } from "@workspace/db";
 import { usersTable, customersTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { loginLimiter, authLimiter, passwordResetLimiter } from "../lib/rate-limit";
-import { sendEmail, emailVerificationEmail, passwordResetEmail } from "../lib/email";
+import { sendVerificationEmail, sendPasswordResetEmail } from "../lib/email";
 
 const router = Router();
 
@@ -60,8 +60,7 @@ router.post("/auth/register", authLimiter, async (req, res) => {
 
     // Send verification email (non-blocking)
     const verificationUrl = `${APP_URL}/api/auth/verify-email?token=${verificationToken}`;
-    const emailContent = emailVerificationEmail({ name: customer.name, verificationUrl });
-    sendEmail({ to: emailLower, ...emailContent }).catch(() => {});
+    sendVerificationEmail(emailLower, { name: customer.name, verificationUrl }).catch(() => {});
 
     req.session.userId = user.id;
     req.session.role = user.role;
@@ -212,8 +211,7 @@ router.post("/auth/resend-verification", authLimiter, async (req, res) => {
       : [null];
 
     const verificationUrl = `${APP_URL}/api/auth/verify-email?token=${verificationToken}`;
-    const emailContent = emailVerificationEmail({ name: customer?.name ?? user.email, verificationUrl });
-    await sendEmail({ to: user.email, ...emailContent });
+    await sendVerificationEmail(user.email, { name: customer?.name ?? user.email, verificationUrl });
 
     res.json({ ok: true });
   } catch (err) {
@@ -240,8 +238,7 @@ router.post("/auth/forgot-password", passwordResetLimiter, async (req, res) => {
         : [null];
 
       const resetUrl = `${APP_URL}/reset-password?token=${resetToken}`;
-      const emailContent = passwordResetEmail({ name: customer?.name ?? user.email, resetUrl });
-      sendEmail({ to: user.email, ...emailContent }).catch(() => {});
+      sendPasswordResetEmail(user.email, { name: customer?.name ?? user.email, resetUrl }).catch(() => {});
     }
     res.json({ ok: true, message: "If an account with that email exists, a reset link has been sent." });
   } catch (err) {

@@ -1,7 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { runMigrations } from "./lib/migrate";
-import { startReminderCron } from "./lib/reminder-cron";
 
 const rawPort = process.env["PORT"];
 
@@ -25,7 +24,6 @@ runMigrations()
         process.exit(1);
       }
       logger.info({ port }, "Server listening");
-      startReminderCron();
     });
   })
   .catch((err) => {

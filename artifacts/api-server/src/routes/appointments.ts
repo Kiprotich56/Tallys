@@ -22,7 +22,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import { bookingLimiter } from "../lib/rate-limit";
-import { sendEmail, bookingConfirmationEmail, bookingCancellationEmail } from "../lib/email";
+import { sendBookingConfirmationEmail, sendBookingCancellationEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -131,15 +131,14 @@ router.post("/appointments", requireAuth, bookingLimiter, async (req, res): Prom
   const [staffRow] = await db.select({ name: staffTable.name }).from(staffTable).where(eq(staffTable.id, parsed.data.staffId));
 
   if (customer?.email) {
-    const emailContent = bookingConfirmationEmail({
+    sendBookingConfirmationEmail(customer.email, {
       customerName: customer.name,
       serviceName: service.name,
       staffName: staffRow?.name ?? "Our team",
       date: parsed.data.date,
       timeSlot: parsed.data.timeSlot,
       totalKes,
-    });
-    sendEmail({ to: customer.email, ...emailContent }).catch(() => {});
+    }).catch(() => {});
   }
 
   res.status(201).json(CreateAppointmentResponse.parse(await enrichAppointment(appt)));
@@ -176,13 +175,12 @@ router.delete("/appointments/:id", async (req, res): Promise<void> => {
   const [customer] = await db.select({ email: customersTable.email, name: customersTable.name }).from(customersTable).where(eq(customersTable.id, appt.customerId));
   const [service] = await db.select({ name: servicesTable.name }).from(servicesTable).where(eq(servicesTable.id, appt.serviceId));
   if (customer?.email) {
-    const emailContent = bookingCancellationEmail({
+    sendBookingCancellationEmail(customer.email, {
       customerName: customer.name,
       serviceName: service?.name ?? "Service",
       date: appt.date,
       timeSlot: appt.timeSlot,
-    });
-    sendEmail({ to: customer.email, ...emailContent }).catch(() => {});
+    }).catch(() => {});
   }
 
   res.sendStatus(204);
