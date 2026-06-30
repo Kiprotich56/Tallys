@@ -9,7 +9,10 @@ import { sendVerificationEmail, sendPasswordResetEmail } from "../lib/email";
 
 const router = Router();
 
-const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
+// CLIENT_URL = the frontend (Vercel / browser-facing domain)
+// API_URL    = this Express server's own public URL (used in email links that call /api/*)
+const CLIENT_URL = process.env.CLIENT_URL ?? process.env.APP_URL ?? "http://localhost:3000";
+const API_URL = process.env.API_URL ?? `http://localhost:${process.env.PORT ?? 8080}`;
 
 function generateToken() {
   return crypto.randomBytes(32).toString("hex");
@@ -59,7 +62,7 @@ router.post("/auth/register", authLimiter, async (req, res) => {
     }).returning();
 
     // Send verification email (non-blocking)
-    const verificationUrl = `${APP_URL}/api/auth/verify-email?token=${verificationToken}`;
+    const verificationUrl = `${API_URL}/api/auth/verify-email?token=${verificationToken}`;
     sendVerificationEmail(emailLower, { name: customer.name, verificationUrl }).catch(() => {});
 
     req.session.userId = user.id;
@@ -174,7 +177,7 @@ router.get("/auth/verify-email", async (req, res) => {
       .where(eq(usersTable.emailVerificationToken, token)).limit(1);
 
     if (!user || !user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
-      res.redirect(`${APP_URL}/login?verified=expired`);
+      res.redirect(`${CLIENT_URL}/login?verified=expired`);
       return;
     }
 
@@ -184,7 +187,7 @@ router.get("/auth/verify-email", async (req, res) => {
       emailVerificationExpires: null,
     }).where(eq(usersTable.id, user.id));
 
-    res.redirect(`${APP_URL}/login?verified=success`);
+    res.redirect(`${CLIENT_URL}/login?verified=success`);
   } catch (err) {
     req.log.error(err, "verify-email error");
     res.status(500).json({ error: "Verification failed" });
@@ -210,7 +213,7 @@ router.post("/auth/resend-verification", authLimiter, async (req, res) => {
       ? await db.select().from(customersTable).where(eq(customersTable.id, user.customerId)).limit(1)
       : [null];
 
-    const verificationUrl = `${APP_URL}/api/auth/verify-email?token=${verificationToken}`;
+    const verificationUrl = `${API_URL}/api/auth/verify-email?token=${verificationToken}`;
     await sendVerificationEmail(user.email, { name: customer?.name ?? user.email, verificationUrl });
 
     res.json({ ok: true });
@@ -237,7 +240,7 @@ router.post("/auth/forgot-password", passwordResetLimiter, async (req, res) => {
         ? await db.select().from(customersTable).where(eq(customersTable.id, user.customerId)).limit(1)
         : [null];
 
-      const resetUrl = `${APP_URL}/reset-password?token=${resetToken}`;
+      const resetUrl = `${CLIENT_URL}/reset-password?token=${resetToken}`;
       sendPasswordResetEmail(user.email, { name: customer?.name ?? user.email, resetUrl }).catch(() => {});
     }
     res.json({ ok: true, message: "If an account with that email exists, a reset link has been sent." });
