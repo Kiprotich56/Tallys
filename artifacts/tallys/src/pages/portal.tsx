@@ -1,14 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Star, Calendar, Clock, Crown, History, LogOut, Mail, CheckCircle2, AlertCircle } from "lucide-react";
+import { Star, Calendar, Clock, Crown, History, LogOut, Mail, CheckCircle2, AlertCircle, UserPen, X, Save } from "lucide-react";
 import {
   useGetCustomer,
   useGetCustomerAppointments,
   useGetLoyalty,
   useCancelAppointment,
+  useUpdateCustomer,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle
@@ -36,6 +38,11 @@ export default function PortalDashboard() {
   const [, setLocation] = useLocation();
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [resendState, setResendState] = useState<ResendState>("idle");
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [profileName, setProfileName] = useState("");
+  const [profilePhone, setProfilePhone] = useState("");
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileSaved, setProfileSaved] = useState(false);
 
   const handleResendVerification = async () => {
     setResendState("sending");
@@ -59,6 +66,38 @@ export default function PortalDashboard() {
   const { data: loyalty } = useGetLoyalty(customerId, { query: { enabled: customerId > 0 } });
 
   const cancelAppointment = useCancelAppointment();
+  const updateCustomer = useUpdateCustomer();
+
+  useEffect(() => {
+    if (customer) {
+      setProfileName(customer.name ?? "");
+      setProfilePhone(customer.phone ?? "");
+      setProfileEmail(customer.email ?? "");
+    }
+  }, [customer]);
+
+  const handleOpenEdit = () => {
+    if (customer) {
+      setProfileName(customer.name ?? "");
+      setProfilePhone(customer.phone ?? "");
+      setProfileEmail(customer.email ?? "");
+    }
+    setProfileSaved(false);
+    setEditingProfile(true);
+  };
+
+  const handleSaveProfile = () => {
+    if (!customerId || !profileName.trim() || !profilePhone.trim()) return;
+    updateCustomer.mutate(
+      { id: customerId, data: { name: profileName.trim(), phone: profilePhone.trim(), email: profileEmail.trim() || undefined } },
+      {
+        onSuccess: () => {
+          setProfileSaved(true);
+          setEditingProfile(false);
+        },
+      },
+    );
+  };
 
   const handleLogout = async () => {
     await logout();
@@ -256,6 +295,94 @@ export default function PortalDashboard() {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Profile card */}
+      <div className="bg-card border border-border p-6 rounded-lg mt-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2 text-primary">
+            <UserPen className="w-5 h-5" />
+            <h2 className="text-xl font-bold">My Profile</h2>
+          </div>
+          {!editingProfile && (
+            <Button variant="outline" size="sm" onClick={handleOpenEdit}>
+              Edit Profile
+            </Button>
+          )}
+        </div>
+
+        {editingProfile ? (
+          <div className="space-y-4 max-w-md">
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Full Name</label>
+              <Input
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+                placeholder="Jane Doe"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Phone Number</label>
+              <Input
+                value={profilePhone}
+                onChange={(e) => setProfilePhone(e.target.value)}
+                placeholder="0712 345 678"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Email Address</label>
+              <Input
+                type="email"
+                value={profileEmail}
+                onChange={(e) => setProfileEmail(e.target.value)}
+                placeholder="you@example.com"
+              />
+            </div>
+            {updateCustomer.isError && (
+              <p className="text-sm text-destructive">Failed to save — please try again.</p>
+            )}
+            <div className="flex gap-3 pt-1">
+              <Button
+                onClick={handleSaveProfile}
+                disabled={updateCustomer.isPending || !profileName.trim() || !profilePhone.trim()}
+                className="gap-2"
+              >
+                <Save className="w-4 h-4" />
+                {updateCustomer.isPending ? "Saving…" : "Save Changes"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => { setEditingProfile(false); updateCustomer.reset(); }}
+                disabled={updateCustomer.isPending}
+                className="gap-2"
+              >
+                <X className="w-4 h-4" /> Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <dl className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1">Full Name</dt>
+              <dd className="font-medium">{customer?.name || "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1">Phone</dt>
+              <dd className="font-medium">{customer?.phone || "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-1">Email</dt>
+              <dd className="font-medium break-all">{customer?.email || user?.email || "—"}</dd>
+            </div>
+            {profileSaved && (
+              <div className="sm:col-span-3">
+                <span className="inline-flex items-center gap-1.5 text-sm text-green-400 font-medium">
+                  <CheckCircle2 className="w-4 h-4" /> Profile updated successfully.
+                </span>
+              </div>
+            )}
+          </dl>
+        )}
       </div>
 
       {/* Cancel confirmation dialog */}
