@@ -11,6 +11,9 @@ import dashboardRouter from "./dashboard";
 import mpesaRouter from "./mpesa";
 import whatsappRouter from "./whatsapp";
 import adminDbRouter from "./admin-db";
+import commissionsRouter from "./commissions";
+import portfolioRouter from "./portfolio";
+import contactRouter from "./contact";
 
 const router: IRouter = Router();
 
@@ -26,5 +29,8 @@ router.use(dashboardRouter);
 router.use(mpesaRouter);
 router.use(whatsappRouter);
 router.use(adminDbRouter);
+router.use(commissionsRouter);
+router.use(portfolioRouter);
+router.use(contactRouter);
 
 export default router;

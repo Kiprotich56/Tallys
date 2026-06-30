@@ -1,3 +1,4 @@
 - [Orval path+query param collision](orval-params-collision.md) — endpoints with both a path param AND a query param produce a TS2308 collision in lib/api-zod. Fix: move path param to query param.
 - [Staff availability route ordering](staff-route-ordering.md) — `/staff/availability` must be registered before `/staff/:id` in Express 5 or "availability" is matched as the :id value.
 - [customFetch returns empty in Replit dev proxy](custom-fetch-replit-proxy.md) — React Query's customFetch (credentials:"include") silently returns [] for list endpoints in the Replit dev proxy. Fix: add a direct fetch() fallback in useEffect and merge results.
+- [API server esbuild externals + deps](api-server-esbuild-deps.md) — workspace lib packages must be BOTH in build.mjs externals AND in api-server/package.json dependencies for the externalized runtime to resolve them.

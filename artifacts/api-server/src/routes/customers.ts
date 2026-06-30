@@ -14,6 +14,7 @@ import {
   GetCustomerAppointmentsParams,
   GetCustomerAppointmentsResponse,
 } from "@workspace/api-zod";
+import { requireAdmin } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
@@ -29,15 +30,10 @@ function mapCustomer(c: typeof customersTable.$inferSelect) {
     loyaltyPoints: c.loyaltyPoints,
     totalVisits: c.totalVisits,
     totalSpentKes: c.totalSpentKes,
+    adminNotes: c.adminNotes ?? null,
+    lastInteraction: c.lastInteraction ? c.lastInteraction.toISOString() : null,
     createdAt: c.createdAt.toISOString(),
   };
-}
-
-function getTier(visits: number): string {
-  if (visits >= 30) return "Platinum";
-  if (visits >= 15) return "Gold";
-  if (visits >= 5) return "Silver";
-  return "Bronze";
 }
 
 router.get("/customers", async (req, res): Promise<void> => {
@@ -46,7 +42,11 @@ router.get("/customers", async (req, res): Promise<void> => {
 
   const customers = search
     ? await db.select().from(customersTable).where(
-        or(ilike(customersTable.name, `%${search}%`), ilike(customersTable.phone, `%${search}%`))
+        or(
+          ilike(customersTable.name, `%${search}%`),
+          ilike(customersTable.phone, `%${search}%`),
+          ilike(customersTable.email, `%${search}%`),
+        )
       )
     : await db.select().from(customersTable).orderBy(customersTable.name);
 
@@ -57,25 +57,13 @@ router.post("/customers", async (req, res): Promise<void> => {
   const parsed = CreateCustomerBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  // Upsert: if a customer with this phone already exists, return them (prevents duplicate on re-booking)
-  const existing = await db
-    .select()
-    .from(customersTable)
-    .where(eq(customersTable.phone, parsed.data.phone))
-    .limit(1);
-
+  const existing = await db.select().from(customersTable).where(eq(customersTable.phone, parsed.data.phone)).limit(1);
   if (existing.length > 0) {
-    // Update name/email if provided and different
     const updates: Partial<typeof customersTable.$inferInsert> = {};
     if (parsed.data.name && parsed.data.name !== existing[0].name) updates.name = parsed.data.name;
     if (parsed.data.email && parsed.data.email !== existing[0].email) updates.email = parsed.data.email;
-
     if (Object.keys(updates).length > 0) {
-      const [updated] = await db
-        .update(customersTable)
-        .set(updates)
-        .where(eq(customersTable.id, existing[0].id))
-        .returning();
+      const [updated] = await db.update(customersTable).set(updates).where(eq(customersTable.id, existing[0].id)).returning();
       res.status(200).json(CreateCustomerResponse.parse(mapCustomer(updated)));
     } else {
       res.status(200).json(CreateCustomerResponse.parse(mapCustomer(existing[0])));
@@ -109,6 +97,21 @@ router.patch("/customers/:id", async (req, res): Promise<void> => {
   const [customer] = await db.update(customersTable).set(parsed.data).where(eq(customersTable.id, params.data.id)).returning();
   if (!customer) { res.status(404).json({ error: "Customer not found" }); return; }
   res.json(UpdateCustomerResponse.parse(mapCustomer(customer)));
+});
+
+// Admin-only: update notes
+router.patch("/customers/:id/notes", requireAdmin, async (req, res): Promise<void> => {
+  const id = Number(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const { adminNotes } = req.body;
+  try {
+    const [customer] = await db.update(customersTable).set({ adminNotes: adminNotes ?? null }).where(eq(customersTable.id, id)).returning();
+    if (!customer) { res.status(404).json({ error: "Customer not found" }); return; }
+    res.json({ ok: true, adminNotes: customer.adminNotes ?? null });
+  } catch (err) {
+    req.log.error(err, "update notes error");
+    res.status(500).json({ error: "Failed to update notes" });
+  }
 });
 
 router.get("/customers/:id/appointments", async (req, res): Promise<void> => {

@@ -24,6 +24,8 @@ import AdminServices from "@/pages/admin/services";
 import AdminStaff from "@/pages/admin/staff";
 import AdminDatabase from "@/pages/admin/database";
 import AdminReviews from "@/pages/admin/reviews";
+import AdminCommissions from "@/pages/admin/commissions";
+import AdminContactSubmissions from "@/pages/admin/contact-submissions";
 
 // Layouts
 import PublicLayout from "@/components/layout/public-layout";
@@ -55,6 +57,13 @@ function PortalGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function BookGuard({ children }: { children: React.ReactNode }) {
+  const { user, isLoading } = useAuth();
+  if (isLoading) return <div className="h-screen flex items-center justify-center text-muted-foreground">Loading...</div>;
+  if (!user) return <Redirect to="/login?redirect=/book" />;
+  return <>{children}</>;
+}
+
 function Router() {
   return (
     <Switch>
@@ -68,7 +77,9 @@ function Router() {
               <Route path="/customers" component={AdminCustomers} />
               <Route path="/services" component={AdminServices} />
               <Route path="/staff" component={AdminStaff} />
+              <Route path="/commissions" component={AdminCommissions} />
               <Route path="/reviews" component={AdminReviews} />
+              <Route path="/contact" component={AdminContactSubmissions} />
               <Route path="/database" component={AdminDatabase} />
               <Route component={NotFound} />
             </Switch>
@@ -84,7 +95,11 @@ function Router() {
         <PublicLayout>
           <Switch>
             <Route path="/services" component={ServicesPage} />
-            <Route path="/book" component={BookPage} />
+            <Route path="/book">
+              <BookGuard>
+                <BookPage />
+              </BookGuard>
+            </Route>
             <Route path="/team" component={TeamPage} />
             <Route path="/reviews" component={ReviewsPage} />
             <Route path="/portal">

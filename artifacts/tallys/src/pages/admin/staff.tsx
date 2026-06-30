@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,7 +7,7 @@ import {
   getListStaffQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit2, Star, Trash2 } from "lucide-react";
+import { Plus, Search, Edit2, Star, Trash2, Image, X, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -27,15 +27,181 @@ const staffSchema = z.object({
   commissionPct: z.coerce.number().min(0).max(100),
   isActive: z.boolean().default(true),
   specializationsRaw: z.string().default(""),
+  instagramUrl: z.string().optional(),
+  facebookUrl: z.string().optional(),
+  twitterUrl: z.string().optional(),
+  tiktokUrl: z.string().optional(),
 });
 
 type StaffFormValues = z.infer<typeof staffSchema>;
+
+interface PortfolioImage {
+  id: number;
+  staffId: number;
+  imageUrl: string;
+  caption: string | null;
+  sortOrder: number;
+  createdAt: string;
+}
+
+function PortfolioManager({ staffId, staffName }: { staffId: number; staffName: string }) {
+  const [images, setImages] = useState<PortfolioImage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newUrl, setNewUrl] = useState("");
+  const [newCaption, setNewCaption] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const { toast } = useToast();
+
+  async function fetchPortfolio() {
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/staff/${staffId}/portfolio`, { credentials: "include" });
+      if (res.ok) setImages(await res.json());
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { fetchPortfolio(); }, [staffId]);
+
+  async function addByUrl() {
+    if (!newUrl.trim()) return;
+    setUploading(true);
+    try {
+      const res = await fetch(`/api/staff/${staffId}/portfolio`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ imageUrl: newUrl.trim(), caption: newCaption.trim() || null }),
+      });
+      if (res.ok) {
+        toast({ title: "Image added to portfolio" });
+        setNewUrl(""); setNewCaption(""); fetchPortfolio();
+      } else {
+        toast({ title: "Failed to add image", variant: "destructive" });
+      }
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function uploadFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append("image", file);
+    if (newCaption.trim()) formData.append("caption", newCaption.trim());
+    setUploading(true);
+    try {
+      const res = await fetch(`/api/staff/${staffId}/portfolio`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (res.ok) {
+        toast({ title: "Image uploaded" });
+        setNewCaption(""); fetchPortfolio();
+        e.target.value = "";
+      } else {
+        toast({ title: "Upload failed", variant: "destructive" });
+      }
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function deleteImage(imageId: number) {
+    try {
+      const res = await fetch(`/api/staff/${staffId}/portfolio/${imageId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) {
+        toast({ title: "Image removed" });
+        fetchPortfolio();
+      }
+    } catch {
+      toast({ title: "Failed to remove image", variant: "destructive" });
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <h3 className="font-semibold text-sm flex items-center gap-2">
+        <Image className="w-4 h-4 text-primary" />
+        Portfolio for {staffName}
+      </h3>
+
+      {/* Add by URL or upload */}
+      <div className="bg-background rounded-lg p-4 border border-border space-y-3">
+        <Input
+          placeholder="Caption (optional)"
+          value={newCaption}
+          onChange={e => setNewCaption(e.target.value)}
+        />
+        <div className="flex gap-2">
+          <Input
+            placeholder="Image URL..."
+            value={newUrl}
+            onChange={e => setNewUrl(e.target.value)}
+            className="flex-1"
+          />
+          <Button size="sm" onClick={addByUrl} disabled={uploading || !newUrl.trim()}>
+            Add URL
+          </Button>
+        </div>
+        <div className="text-center">
+          <span className="text-xs text-muted-foreground">— or upload a file —</span>
+        </div>
+        <label className={`flex items-center justify-center gap-2 w-full h-9 rounded-md border border-dashed border-border cursor-pointer hover:bg-accent/10 transition-colors text-sm text-muted-foreground ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
+          <Upload className="w-4 h-4" />
+          {uploading ? "Uploading..." : "Choose File (max 5MB)"}
+          <input type="file" accept="image/*" className="hidden" onChange={uploadFile} disabled={uploading} />
+        </label>
+      </div>
+
+      {/* Gallery */}
+      {loading ? (
+        <div className="text-sm text-muted-foreground">Loading portfolio...</div>
+      ) : images.length === 0 ? (
+        <div className="text-sm text-muted-foreground text-center py-6 border border-dashed border-border rounded-lg">
+          No portfolio images yet. Add some above.
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-2">
+          {images.map(img => (
+            <div key={img.id} className="relative group">
+              <div className="aspect-square rounded overflow-hidden bg-muted">
+                <img
+                  src={img.imageUrl}
+                  alt={img.caption ?? "Portfolio"}
+                  className="w-full h-full object-cover"
+                  onError={e => { (e.currentTarget as HTMLImageElement).style.opacity = "0.3"; }}
+                />
+              </div>
+              {img.caption && (
+                <p className="text-[10px] text-muted-foreground mt-0.5 truncate">{img.caption}</p>
+              )}
+              <button
+                onClick={() => deleteImage(img.id)}
+                className="absolute top-1 right-1 w-5 h-5 bg-black/70 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                <X className="w-3 h-3 text-white" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AdminStaff() {
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
+  const [portfolioStaff, setPortfolioStaff] = useState<{ id: number; name: string } | null>(null);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -46,23 +212,33 @@ export default function AdminStaff() {
 
   const form = useForm<StaffFormValues>({
     resolver: zodResolver(staffSchema),
-    defaultValues: { name: "", role: "Barber", bio: "", photoUrl: "", commissionPct: 50, isActive: true, specializationsRaw: "" },
+    defaultValues: {
+      name: "", role: "Barber", bio: "", photoUrl: "", commissionPct: 50,
+      isActive: true, specializationsRaw: "",
+      instagramUrl: "", facebookUrl: "", twitterUrl: "", tiktokUrl: "",
+    },
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getListStaffQueryKey() });
 
-  const buildPayload = (values: StaffFormValues) => ({
-    name: values.name,
-    role: values.role,
-    bio: values.bio,
-    photoUrl: values.photoUrl || null,
-    commissionPct: values.commissionPct,
-    isActive: values.isActive,
-    specializations: values.specializationsRaw
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean),
-  });
+  const buildPayload = (values: StaffFormValues) => {
+    const socialLinks: Record<string, string> = {};
+    if (values.instagramUrl?.trim()) socialLinks.instagram = values.instagramUrl.trim();
+    if (values.facebookUrl?.trim()) socialLinks.facebook = values.facebookUrl.trim();
+    if (values.twitterUrl?.trim()) socialLinks.twitter = values.twitterUrl.trim();
+    if (values.tiktokUrl?.trim()) socialLinks.tiktok = values.tiktokUrl.trim();
+
+    return {
+      name: values.name,
+      role: values.role,
+      bio: values.bio,
+      photoUrl: values.photoUrl || null,
+      commissionPct: values.commissionPct,
+      isActive: values.isActive,
+      specializations: values.specializationsRaw.split(",").map(s => s.trim()).filter(Boolean),
+      socialLinks: Object.keys(socialLinks).length > 0 ? socialLinks : null,
+    };
+  };
 
   const onSubmit = (values: StaffFormValues) => {
     const data = buildPayload(values);
@@ -81,6 +257,7 @@ export default function AdminStaff() {
 
   const handleEdit = (member: any) => {
     setEditingId(member.id);
+    const sl = member.socialLinks ?? {};
     form.reset({
       name: member.name,
       role: member.role,
@@ -89,13 +266,17 @@ export default function AdminStaff() {
       commissionPct: member.commissionPct ?? 50,
       isActive: member.isActive,
       specializationsRaw: member.specializations?.join(", ") ?? "",
+      instagramUrl: sl.instagram ?? "",
+      facebookUrl: sl.facebook ?? "",
+      twitterUrl: sl.twitter ?? "",
+      tiktokUrl: sl.tiktok ?? "",
     });
     setIsDialogOpen(true);
   };
 
   const openNewDialog = () => {
     setEditingId(null);
-    form.reset({ name: "", role: "Barber", bio: "", photoUrl: "", commissionPct: 50, isActive: true, specializationsRaw: "" });
+    form.reset({ name: "", role: "Barber", bio: "", photoUrl: "", commissionPct: 50, isActive: true, specializationsRaw: "", instagramUrl: "", facebookUrl: "", twitterUrl: "", tiktokUrl: "" });
     setIsDialogOpen(true);
   };
 
@@ -117,7 +298,7 @@ export default function AdminStaff() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-2xl font-bold font-serif mb-1">Staff Management</h1>
-          <p className="text-muted-foreground text-sm">Manage professionals, commissions, and performance.</p>
+          <p className="text-muted-foreground text-sm">Manage professionals, commissions, portfolio, and performance.</p>
         </div>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -126,12 +307,12 @@ export default function AdminStaff() {
               <Plus className="w-4 h-4" /> Add Staff Member
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-[560px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingId ? "Edit Staff Member" : "Add New Staff Member"}</DialogTitle>
             </DialogHeader>
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-2">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem>
@@ -154,10 +335,10 @@ export default function AdminStaff() {
                           <option>Receptionist</option>
                         </select>
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )} />
                 </div>
+
                 <FormField control={form.control} name="specializationsRaw" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Specializations (comma-separated)</FormLabel>
@@ -165,6 +346,7 @@ export default function AdminStaff() {
                     <FormMessage />
                   </FormItem>
                 )} />
+
                 <FormField control={form.control} name="photoUrl" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Photo URL (Optional)</FormLabel>
@@ -172,12 +354,13 @@ export default function AdminStaff() {
                     <FormMessage />
                     {field.value && (
                       <div className="mt-2 flex items-center gap-3">
-                        <img src={field.value} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-border" onError={(e) => (e.currentTarget.style.display = 'none')} />
+                        <img src={field.value} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-border" onError={e => (e.currentTarget.style.display = 'none')} />
                         <span className="text-xs text-muted-foreground">Photo preview</span>
                       </div>
                     )}
                   </FormItem>
                 )} />
+
                 <FormField control={form.control} name="commissionPct" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Commission (%)</FormLabel>
@@ -185,6 +368,7 @@ export default function AdminStaff() {
                     <FormMessage />
                   </FormItem>
                 )} />
+
                 <FormField control={form.control} name="bio" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Bio (Optional)</FormLabel>
@@ -192,6 +376,38 @@ export default function AdminStaff() {
                     <FormMessage />
                   </FormItem>
                 )} />
+
+                {/* Social links */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Social Links (Optional)</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <FormField control={form.control} name="instagramUrl" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs text-muted-foreground">Instagram URL</FormLabel>
+                        <FormControl><Input placeholder="https://instagram.com/..." {...field} /></FormControl>
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="facebookUrl" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs text-muted-foreground">Facebook URL</FormLabel>
+                        <FormControl><Input placeholder="https://facebook.com/..." {...field} /></FormControl>
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="twitterUrl" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs text-muted-foreground">X / Twitter URL</FormLabel>
+                        <FormControl><Input placeholder="https://x.com/..." {...field} /></FormControl>
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="tiktokUrl" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs text-muted-foreground">TikTok URL</FormLabel>
+                        <FormControl><Input placeholder="https://tiktok.com/@..." {...field} /></FormControl>
+                      </FormItem>
+                    )} />
+                  </div>
+                </div>
+
                 <FormField control={form.control} name="isActive" render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
@@ -203,7 +419,8 @@ export default function AdminStaff() {
                     </FormControl>
                   </FormItem>
                 )} />
-                <div className="flex justify-end gap-3 pt-4">
+
+                <div className="flex justify-end gap-3 pt-2">
                   <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
                   <Button type="submit" disabled={createStaff.isPending || updateStaff.isPending}>
                     {editingId ? "Save Changes" : "Create Profile"}
@@ -215,7 +432,8 @@ export default function AdminStaff() {
         </Dialog>
       </div>
 
-      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+      {/* Delete confirmation */}
+      <Dialog open={!!deleteTarget} onOpenChange={o => !o && setDeleteTarget(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Remove Staff Member</DialogTitle>
@@ -232,12 +450,66 @@ export default function AdminStaff() {
         </DialogContent>
       </Dialog>
 
+      {/* Portfolio dialog */}
+      <Dialog open={!!portfolioStaff} onOpenChange={o => !o && setPortfolioStaff(null)}>
+        <DialogContent className="sm:max-w-[560px] max-h-[85vh] overflow-y-auto">
+          {portfolioStaff && (
+            <PortfolioManager staffId={portfolioStaff.id} staffName={portfolioStaff.name} />
+          )}
+        </DialogContent>
+      </Dialog>
+
       <div className="flex items-center max-w-md relative">
         <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input className="pl-9" placeholder="Search staff..." value={search} onChange={(e) => setSearch(e.target.value)} />
+        <Input className="pl-9" placeholder="Search staff..." value={search} onChange={e => setSearch(e.target.value)} />
       </div>
 
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      {/* Mobile cards + desktop table */}
+      <div className="space-y-3 md:hidden">
+        {isLoading ? (
+          <div className="p-8 text-center text-muted-foreground">Loading staff...</div>
+        ) : filteredStaff?.map(member => (
+          <div key={member.id} className="bg-card border border-border rounded-lg p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-primary/20 flex-shrink-0 overflow-hidden">
+                {member.photoUrl ? (
+                  <img src={member.photoUrl} alt={member.name} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-primary font-bold text-sm">{member.name.charAt(0)}</div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold truncate">{member.name}</div>
+                <div className="text-sm text-primary">{member.role}</div>
+              </div>
+              <span className={`text-xs px-2 py-0.5 rounded font-bold uppercase ${member.isActive ? "bg-green-900/30 text-green-500" : "bg-muted text-muted-foreground"}`}>
+                {member.isActive ? "Active" : "Off"}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs mb-3">
+              <div><span className="text-muted-foreground">Rating: </span><span className="font-medium">{member.rating?.toFixed(1) ?? "N/A"}</span></div>
+              <div><span className="text-muted-foreground">Services: </span><span className="font-medium">{member.completedServices || 0}</span></div>
+              <div><span className="text-muted-foreground">Comm: </span><span className="font-medium">{member.commissionPct}%</span></div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="flex-1 h-8" onClick={() => handleEdit(member)}>
+                <Edit2 className="w-3.5 h-3.5 mr-1.5" /> Edit
+              </Button>
+              <Button variant="outline" size="sm" className="flex-1 h-8" onClick={() => setPortfolioStaff({ id: member.id, name: member.name })}>
+                <Image className="w-3.5 h-3.5 mr-1.5" /> Portfolio
+              </Button>
+              <Button variant="ghost" size="sm" className="h-8 px-2 text-muted-foreground hover:text-destructive" onClick={() => setDeleteTarget({ id: member.id, name: member.name })}>
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        ))}
+        {!isLoading && filteredStaff?.length === 0 && (
+          <div className="p-8 text-center text-muted-foreground">No staff found.</div>
+        )}
+      </div>
+
+      <div className="hidden md:block bg-card border border-border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-background text-muted-foreground text-xs uppercase tracking-wider text-left border-b border-border">
@@ -259,11 +531,9 @@ export default function AdminStaff() {
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-primary/20 flex-shrink-0 overflow-hidden">
                         {member.photoUrl ? (
-                          <img src={member.photoUrl} alt={member.name} className="w-full h-full object-cover" onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
+                          <img src={member.photoUrl} alt={member.name} className="w-full h-full object-cover" onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none'; }} />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-primary font-bold text-sm">
-                            {member.name.charAt(0)}
-                          </div>
+                          <div className="w-full h-full flex items-center justify-center text-primary font-bold text-sm">{member.name.charAt(0)}</div>
                         )}
                       </div>
                       <div>
@@ -282,27 +552,24 @@ export default function AdminStaff() {
                   <td className="p-4">
                     <div className="flex flex-wrap gap-1">
                       {member.specializations?.slice(0, 2).map(spec => (
-                        <span key={spec} className="px-1.5 py-0.5 bg-background border border-border rounded text-[10px] uppercase">
-                          {spec}
-                        </span>
+                        <span key={spec} className="px-1.5 py-0.5 bg-background border border-border rounded text-[10px] uppercase">{spec}</span>
                       ))}
                       {member.specializations && member.specializations.length > 2 && (
-                        <span className="px-1.5 py-0.5 bg-background border border-border rounded text-[10px]">
-                          +{member.specializations.length - 2}
-                        </span>
+                        <span className="px-1.5 py-0.5 bg-background border border-border rounded text-[10px]">+{member.specializations.length - 2}</span>
                       )}
                     </div>
                   </td>
                   <td className="p-4 font-medium">{member.commissionPct}%</td>
                   <td className="p-4">
-                    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${
-                      member.isActive ? "bg-green-900/30 text-green-500" : "bg-muted text-muted-foreground"
-                    }`}>
+                    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold uppercase tracking-wider ${member.isActive ? "bg-green-900/30 text-green-500" : "bg-muted text-muted-foreground"}`}>
                       {member.isActive ? "Active" : "Inactive"}
                     </span>
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="sm" onClick={() => setPortfolioStaff({ id: member.id, name: member.name })} className="h-8 px-2 text-muted-foreground hover:text-primary">
+                        <Image className="w-4 h-4 mr-1" /> Portfolio
+                      </Button>
                       <Button variant="ghost" size="sm" onClick={() => handleEdit(member)} className="h-8 px-2 text-muted-foreground hover:text-primary">
                         <Edit2 className="w-4 h-4 mr-1" /> Edit
                       </Button>

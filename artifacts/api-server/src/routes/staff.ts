@@ -29,6 +29,7 @@ function mapStaff(s: typeof staffTable.$inferSelect) {
     isActive: s.isActive,
     completedServices: s.completedServices,
     revenueGenerated: s.revenueGenerated,
+    socialLinks: s.socialLinks ?? null,
   };
 }
 

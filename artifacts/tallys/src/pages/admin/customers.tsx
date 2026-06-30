@@ -9,9 +9,10 @@ import {
   getListCustomersQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search, Crown, X, Calendar, Edit2, Check } from "lucide-react";
+import { Search, Crown, X, Calendar, Edit2, Check, StickyNote } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -40,9 +41,7 @@ function CustomerHistoryPanel({ customerId, onClose }: { customerId: number; onC
     <div className="mt-6 border-t border-border pt-6">
       <div className="flex items-center justify-between mb-4">
         <h4 className="font-bold flex items-center gap-2"><Calendar className="w-4 h-4 text-primary" /> Appointment History</h4>
-        <Button variant="ghost" size="sm" onClick={onClose} className="h-7 px-2">
-          <X className="w-3.5 h-3.5" />
-        </Button>
+        <Button variant="ghost" size="sm" onClick={onClose} className="h-7 px-2"><X className="w-3.5 h-3.5" /></Button>
       </div>
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Loading history…</div>
@@ -73,11 +72,61 @@ function CustomerHistoryPanel({ customerId, onClose }: { customerId: number; onC
   );
 }
 
+function AdminNotesPanel({ customerId, initialNotes, onClose }: { customerId: number; initialNotes: string | null; onClose: () => void }) {
+  const [notes, setNotes] = useState(initialNotes ?? "");
+  const [saving, setSaving] = useState(false);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  async function saveNotes() {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/customers/${customerId}/notes`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adminNotes: notes || null }),
+      });
+      if (res.ok) {
+        toast({ title: "Notes saved" });
+        queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey() });
+      } else {
+        toast({ title: "Failed to save notes", variant: "destructive" });
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mt-6 border-t border-border pt-6">
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="font-bold flex items-center gap-2 text-sm">
+          <StickyNote className="w-4 h-4 text-primary" /> Admin Notes
+        </h4>
+        <Button variant="ghost" size="sm" onClick={onClose} className="h-7 px-2"><X className="w-3.5 h-3.5" /></Button>
+      </div>
+      <Textarea
+        value={notes}
+        onChange={e => setNotes(e.target.value)}
+        placeholder="Private notes visible only to admins..."
+        rows={4}
+        className="resize-none mb-3"
+      />
+      <Button size="sm" onClick={saveNotes} disabled={saving} className="gap-1.5">
+        <Check className="w-3.5 h-3.5" />
+        {saving ? "Saving..." : "Save Notes"}
+      </Button>
+    </div>
+  );
+}
+
 export default function AdminCustomers() {
   const [search, setSearch] = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState<any | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -102,6 +151,7 @@ export default function AdminCustomers() {
     setSelectedCustomer(customer);
     setShowHistory(false);
     setIsEditing(false);
+    setShowNotes(false);
     form.reset({
       name: customer.name,
       phone: customer.phone,
@@ -127,7 +177,7 @@ export default function AdminCustomers() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold font-serif mb-1">Customers</h1>
-        <p className="text-muted-foreground text-sm">View client profiles, loyalty status, and appointment history.</p>
+        <p className="text-muted-foreground text-sm">View client profiles, loyalty status, history, and notes.</p>
       </div>
 
       <div className="flex items-center w-full max-w-md relative">
@@ -136,11 +186,43 @@ export default function AdminCustomers() {
           className="pl-9"
           placeholder="Search by name, phone or email..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={e => setSearch(e.target.value)}
         />
       </div>
 
-      <div className="bg-card border border-border rounded-lg overflow-hidden">
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-3">
+        {isLoading ? (
+          <div className="p-8 text-center text-muted-foreground">Loading customers...</div>
+        ) : customers?.map(customer => (
+          <div key={customer.id} className="bg-card border border-border rounded-lg p-4 cursor-pointer" onClick={() => openCustomer(customer)}>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold uppercase flex-shrink-0">
+                {customer.name.charAt(0)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-bold truncate">{customer.name}</div>
+                <div className="text-xs text-muted-foreground">{customer.phone}</div>
+              </div>
+              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold uppercase ${getTierColor(customer.loyaltyTier)}`}>
+                <Crown className="w-2.5 h-2.5" />
+                {customer.loyaltyTier}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div><span className="text-muted-foreground">Visits: </span><strong>{customer.totalVisits}</strong></div>
+              <div><span className="text-muted-foreground">Points: </span><strong>{customer.loyaltyPoints}</strong></div>
+              <div className="text-primary font-bold">KSh {customer.totalSpentKes.toLocaleString()}</div>
+            </div>
+          </div>
+        ))}
+        {!isLoading && customers?.length === 0 && (
+          <div className="p-8 text-center text-muted-foreground">No customers found.</div>
+        )}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block bg-card border border-border rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-background text-muted-foreground text-xs uppercase tracking-wider text-left border-b border-border">
@@ -150,12 +232,13 @@ export default function AdminCustomers() {
                 <th className="p-4 font-medium">Loyalty Tier</th>
                 <th className="p-4 font-medium">Total Visits</th>
                 <th className="p-4 font-medium">Total Spent</th>
+                <th className="p-4 font-medium">Last Visit</th>
                 <th className="p-4 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {isLoading ? (
-                <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Loading customers...</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">Loading customers...</td></tr>
               ) : customers?.map(customer => (
                 <tr key={customer.id} className="hover:bg-accent/5 cursor-pointer" onClick={() => openCustomer(customer)}>
                   <td className="p-4">
@@ -164,6 +247,9 @@ export default function AdminCustomers() {
                         {customer.name.charAt(0)}
                       </div>
                       {customer.name}
+                      {(customer as any).adminNotes && (
+                        <StickyNote className="w-3 h-3 text-amber-500" title="Has admin notes" />
+                      )}
                     </div>
                   </td>
                   <td className="p-4">
@@ -175,13 +261,16 @@ export default function AdminCustomers() {
                       <Crown className="w-3 h-3" />
                       {customer.loyaltyTier}
                     </span>
-                    <div className="text-xs text-muted-foreground mt-1.5 ml-1">
-                      {customer.loyaltyPoints} pts
-                    </div>
+                    <div className="text-xs text-muted-foreground mt-1.5 ml-1">{customer.loyaltyPoints} pts</div>
                   </td>
                   <td className="p-4 font-medium">{customer.totalVisits}</td>
                   <td className="p-4 font-bold text-primary">KSh {customer.totalSpentKes.toLocaleString()}</td>
-                  <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
+                  <td className="p-4 text-xs text-muted-foreground">
+                    {(customer as any).lastInteraction
+                      ? format(parseISO((customer as any).lastInteraction), "MMM d, yyyy")
+                      : "—"}
+                  </td>
+                  <td className="p-4 text-right" onClick={e => e.stopPropagation()}>
                     <Button variant="ghost" size="sm" onClick={() => openCustomer(customer)} className="h-8 px-2 text-muted-foreground hover:text-primary">
                       <Edit2 className="w-3.5 h-3.5 mr-1" /> View
                     </Button>
@@ -189,14 +278,14 @@ export default function AdminCustomers() {
                 </tr>
               ))}
               {!isLoading && customers?.length === 0 && (
-                <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">No customers found.</td></tr>
+                <tr><td colSpan={7} className="p-8 text-center text-muted-foreground">No customers found.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      <Dialog open={!!selectedCustomer} onOpenChange={(o) => !o && setSelectedCustomer(null)}>
+      <Dialog open={!!selectedCustomer} onOpenChange={o => !o && setSelectedCustomer(null)}>
         <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
@@ -215,7 +304,7 @@ export default function AdminCustomers() {
               </div>
               <div className="bg-background rounded-lg p-3 text-center">
                 <div className="text-xl font-bold text-primary">{selectedCustomer?.loyaltyPoints}</div>
-                <div className="text-xs text-muted-foreground mt-1">Loyalty Points</div>
+                <div className="text-xs text-muted-foreground mt-1">Points</div>
               </div>
               <div className="bg-background rounded-lg p-3 text-center">
                 <div className="text-sm font-bold text-primary">{selectedCustomer ? `KSh ${selectedCustomer.totalSpentKes?.toLocaleString()}` : "—"}</div>
@@ -223,16 +312,19 @@ export default function AdminCustomers() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-2">
               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded text-xs font-bold uppercase tracking-wider ${getTierColor(selectedCustomer?.loyaltyTier)}`}>
                 <Crown className="w-3 h-3" />
                 {selectedCustomer?.loyaltyTier} Member
               </span>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => { setShowHistory(!showHistory); setIsEditing(false); }} className="h-8">
+              <div className="flex gap-2 flex-wrap">
+                <Button variant="outline" size="sm" onClick={() => { setShowHistory(!showHistory); setIsEditing(false); setShowNotes(false); }} className="h-8">
                   <Calendar className="w-3.5 h-3.5 mr-1.5" /> History
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => { setIsEditing(!isEditing); setShowHistory(false); }} className="h-8">
+                <Button variant="outline" size="sm" onClick={() => { setShowNotes(!showNotes); setIsEditing(false); setShowHistory(false); }} className="h-8">
+                  <StickyNote className="w-3.5 h-3.5 mr-1.5" /> Notes
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => { setIsEditing(!isEditing); setShowHistory(false); setShowNotes(false); }} className="h-8">
                   <Edit2 className="w-3.5 h-3.5 mr-1.5" /> Edit
                 </Button>
               </div>
@@ -292,7 +384,15 @@ export default function AdminCustomers() {
               <CustomerHistoryPanel customerId={selectedCustomer.id} onClose={() => setShowHistory(false)} />
             )}
 
-            {!isEditing && !showHistory && (
+            {showNotes && selectedCustomer && (
+              <AdminNotesPanel
+                customerId={selectedCustomer.id}
+                initialNotes={selectedCustomer.adminNotes ?? null}
+                onClose={() => setShowNotes(false)}
+              />
+            )}
+
+            {!isEditing && !showHistory && !showNotes && (
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between py-2 border-b border-border/50">
                   <span className="text-muted-foreground">Phone</span>
@@ -306,10 +406,24 @@ export default function AdminCustomers() {
                   <span className="text-muted-foreground">Gender</span>
                   <span className="capitalize">{selectedCustomer?.gender || "—"}</span>
                 </div>
+                {selectedCustomer?.lastInteraction && (
+                  <div className="flex justify-between py-2 border-b border-border/50">
+                    <span className="text-muted-foreground">Last Interaction</span>
+                    <span>{format(parseISO(selectedCustomer.lastInteraction), "MMM d, yyyy")}</span>
+                  </div>
+                )}
                 <div className="flex justify-between py-2">
                   <span className="text-muted-foreground">Member Since</span>
                   <span>{selectedCustomer?.createdAt ? format(parseISO(selectedCustomer.createdAt), "MMM d, yyyy") : "—"}</span>
                 </div>
+                {selectedCustomer?.adminNotes && (
+                  <div className="mt-2 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                    <div className="flex items-center gap-1 text-xs font-bold text-amber-500 mb-1">
+                      <StickyNote className="w-3 h-3" /> Admin Notes
+                    </div>
+                    <p className="text-sm">{selectedCustomer.adminNotes}</p>
+                  </div>
+                )}
               </div>
             )}
           </div>

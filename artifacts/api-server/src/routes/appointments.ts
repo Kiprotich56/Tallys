@@ -1,6 +1,9 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, appointmentsTable, customersTable, servicesTable, staffTable } from "@workspace/db";
+import {
+  db, appointmentsTable, customersTable, servicesTable, staffTable,
+  commissionsTable, serviceCommissionsTable,
+} from "@workspace/db";
 import {
   ListAppointmentsQueryParams,
   ListAppointmentsResponse,
@@ -17,6 +20,9 @@ import {
   CompleteAppointmentParams,
   CompleteAppointmentResponse,
 } from "@workspace/api-zod";
+import { requireAuth } from "../middlewares/auth";
+import { bookingLimiter } from "../lib/rate-limit";
+import { sendEmail, bookingConfirmationEmail, bookingCancellationEmail } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -82,12 +88,29 @@ router.get("/appointments", async (req, res): Promise<void> => {
   }))));
 });
 
-router.post("/appointments", async (req, res): Promise<void> => {
+router.post("/appointments", requireAuth, bookingLimiter, async (req, res): Promise<void> => {
   const parsed = CreateAppointmentBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const [service] = await db.select({ priceKes: servicesTable.priceKes }).from(servicesTable).where(eq(servicesTable.id, parsed.data.serviceId));
-  const totalKes = service?.priceKes ?? 0;
+  const [service] = await db.select().from(servicesTable).where(eq(servicesTable.id, parsed.data.serviceId));
+  if (!service) { res.status(404).json({ error: "Service not found" }); return; }
+  const totalKes = service.priceKes ?? 0;
+
+  // Check for double booking
+  const existing = await db.select({ id: appointmentsTable.id })
+    .from(appointmentsTable)
+    .where(
+      and(
+        eq(appointmentsTable.staffId, parsed.data.staffId),
+        eq(appointmentsTable.date, parsed.data.date),
+        eq(appointmentsTable.timeSlot, parsed.data.timeSlot),
+      )
+    ).limit(1);
+
+  if (existing.length > 0) {
+    res.status(409).json({ error: "This time slot is already booked. Please choose another time." });
+    return;
+  }
 
   const [appt] = await db.insert(appointmentsTable).values({
     customerId: parsed.data.customerId,
@@ -99,6 +122,25 @@ router.post("/appointments", async (req, res): Promise<void> => {
     totalKes,
     status: "pending",
   }).returning();
+
+  // Update customer last interaction
+  db.update(customersTable).set({ lastInteraction: new Date() }).where(eq(customersTable.id, parsed.data.customerId)).catch(() => {});
+
+  // Send confirmation email asynchronously
+  const [customer] = await db.select({ email: customersTable.email, name: customersTable.name }).from(customersTable).where(eq(customersTable.id, parsed.data.customerId));
+  const [staffRow] = await db.select({ name: staffTable.name }).from(staffTable).where(eq(staffTable.id, parsed.data.staffId));
+
+  if (customer?.email) {
+    const emailContent = bookingConfirmationEmail({
+      customerName: customer.name,
+      serviceName: service.name,
+      staffName: staffRow?.name ?? "Our team",
+      date: parsed.data.date,
+      timeSlot: parsed.data.timeSlot,
+      totalKes,
+    });
+    sendEmail({ to: customer.email, ...emailContent }).catch(() => {});
+  }
 
   res.status(201).json(CreateAppointmentResponse.parse(await enrichAppointment(appt)));
 });
@@ -124,7 +166,25 @@ router.patch("/appointments/:id", async (req, res): Promise<void> => {
 router.delete("/appointments/:id", async (req, res): Promise<void> => {
   const params = CancelAppointmentParams.safeParse({ id: Number(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id) });
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
+
+  const [appt] = await db.select().from(appointmentsTable).where(eq(appointmentsTable.id, params.data.id));
+  if (!appt) { res.status(404).json({ error: "Appointment not found" }); return; }
+
   await db.update(appointmentsTable).set({ status: "cancelled" }).where(eq(appointmentsTable.id, params.data.id));
+
+  // Send cancellation email
+  const [customer] = await db.select({ email: customersTable.email, name: customersTable.name }).from(customersTable).where(eq(customersTable.id, appt.customerId));
+  const [service] = await db.select({ name: servicesTable.name }).from(servicesTable).where(eq(servicesTable.id, appt.serviceId));
+  if (customer?.email) {
+    const emailContent = bookingCancellationEmail({
+      customerName: customer.name,
+      serviceName: service?.name ?? "Service",
+      date: appt.date,
+      timeSlot: appt.timeSlot,
+    });
+    sendEmail({ to: customer.email, ...emailContent }).catch(() => {});
+  }
+
   res.sendStatus(204);
 });
 
@@ -153,15 +213,44 @@ router.patch("/appointments/:id/complete", async (req, res): Promise<void> => {
       totalSpentKes: newSpent,
       loyaltyTier: tier,
       loyaltyPoints: customer.loyaltyPoints + Math.floor(appt.totalKes / 100),
+      lastInteraction: new Date(),
     }).where(eq(customersTable.id, appt.customerId));
   }
 
   // Update staff stats
   const [staffRow] = await db.select().from(staffTable).where(eq(staffTable.id, appt.staffId));
-  await db.update(staffTable).set({
-    completedServices: (staffRow?.completedServices ?? 0) + 1,
-    revenueGenerated: (staffRow?.revenueGenerated ?? 0) + appt.totalKes,
-  }).where(eq(staffTable.id, appt.staffId));
+  if (staffRow) {
+    await db.update(staffTable).set({
+      completedServices: (staffRow.completedServices ?? 0) + 1,
+      revenueGenerated: (staffRow.revenueGenerated ?? 0) + appt.totalKes,
+    }).where(eq(staffTable.id, appt.staffId));
+  }
+
+  // Calculate and record commission
+  const [service] = await db.select().from(servicesTable).where(eq(servicesTable.id, appt.serviceId));
+  if (service && staffRow) {
+    // Priority: service-specific > barber-specific > default (30%)
+    let commissionPct = staffRow.commissionPct ?? 30;
+    const [serviceRate] = await db.select().from(serviceCommissionsTable)
+      .where(eq(serviceCommissionsTable.serviceId, appt.serviceId)).limit(1);
+    if (serviceRate) commissionPct = serviceRate.commissionPct;
+
+    const commissionAmountKes = Math.round(appt.totalKes * commissionPct / 100);
+    const salonAmountKes = appt.totalKes - commissionAmountKes;
+
+    await db.insert(commissionsTable).values({
+      appointmentId: appt.id,
+      staffId: appt.staffId,
+      customerId: appt.customerId,
+      serviceId: appt.serviceId,
+      servicePriceKes: appt.totalKes,
+      commissionPct,
+      commissionAmountKes,
+      salonAmountKes,
+      paymentStatus: "pending",
+      completedAt: new Date(),
+    });
+  }
 
   res.json(CompleteAppointmentResponse.parse(await enrichAppointment(appt)));
 });

@@ -4,3 +4,6 @@ export * from "./customers";
 export * from "./appointments";
 export * from "./reviews";
 export * from "./users";
+export * from "./staff-portfolio";
+export * from "./commissions";
+export * from "./contact-submissions";

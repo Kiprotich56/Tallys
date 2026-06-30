@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, boolean, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, boolean, real, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -14,6 +14,7 @@ export const staffTable = pgTable("staff", {
   isActive: boolean("is_active").notNull().default(true),
   completedServices: integer("completed_services").notNull().default(0),
   revenueGenerated: integer("revenue_generated").notNull().default(0),
+  socialLinks: jsonb("social_links").$type<{ instagram?: string; facebook?: string; twitter?: string; tiktok?: string }>(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
