@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Star, Calendar, Clock, Crown, History, LogOut, Mail, CheckCircle2, AlertCircle, UserPen, X, Save } from "lucide-react";
+import { Star, Calendar, Clock, Crown, History, LogOut, Mail, CheckCircle2, AlertCircle, UserPen, X, Save, KeyRound, Eye, EyeOff } from "lucide-react";
 import {
   useGetCustomer,
   useGetCustomerAppointments,
@@ -43,6 +43,49 @@ export default function PortalDashboard() {
   const [profilePhone, setProfilePhone] = useState("");
   const [profileEmail, setProfileEmail] = useState("");
   const [profileSaved, setProfileSaved] = useState(false);
+
+  const [editingPassword, setEditingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showCurrent, setShowCurrent] = useState(false);
+  const [showNew, setShowNew] = useState(false);
+  const [passwordSaved, setPasswordSaved] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
+  const handleChangePassword = async () => {
+    setPasswordError(null);
+    if (newPassword.length < 8) {
+      setPasswordError("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPasswordError("Passwords don't match.");
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      const base = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+      const res = await fetch(`${base}/api/auth/change-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ currentPassword, newPassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to change password");
+      setPasswordSaved(true);
+      setEditingPassword(false);
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (err: any) {
+      setPasswordError(err.message ?? "Something went wrong");
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
 
   const handleResendVerification = async () => {
     setResendState("sending");
@@ -382,6 +425,103 @@ export default function PortalDashboard() {
               </div>
             )}
           </dl>
+        )}
+      </div>
+
+      {/* Change password card */}
+      <div className="bg-card border border-border p-6 rounded-lg mt-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2 text-primary">
+            <KeyRound className="w-5 h-5" />
+            <h2 className="text-xl font-bold">Change Password</h2>
+          </div>
+          {!editingPassword && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => { setEditingPassword(true); setPasswordSaved(false); setPasswordError(null); }}
+            >
+              Change Password
+            </Button>
+          )}
+        </div>
+
+        {editingPassword ? (
+          <div className="space-y-4 max-w-md">
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Current Password</label>
+              <div className="relative">
+                <Input
+                  type={showCurrent ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowCurrent(!showCurrent)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showCurrent ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">New Password</label>
+              <div className="relative">
+                <Input
+                  type={showNew ? "text" : "password"}
+                  placeholder="••••••••"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="pr-10"
+                />
+                <button type="button" onClick={() => setShowNew(!showNew)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+                  {showNew ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">Minimum 8 characters</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Confirm New Password</label>
+              <Input
+                type="password"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+            {passwordError && (
+              <p className="text-sm text-destructive">{passwordError}</p>
+            )}
+            <div className="flex gap-3 pt-1">
+              <Button
+                onClick={handleChangePassword}
+                disabled={passwordLoading || !currentPassword || !newPassword || !confirmPassword}
+                className="gap-2"
+              >
+                <Save className="w-4 h-4" />
+                {passwordLoading ? "Saving…" : "Update Password"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => { setEditingPassword(false); setPasswordError(null); setCurrentPassword(""); setNewPassword(""); setConfirmPassword(""); }}
+                disabled={passwordLoading}
+                className="gap-2"
+              >
+                <X className="w-4 h-4" /> Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-muted-foreground">
+            {passwordSaved ? (
+              <span className="inline-flex items-center gap-1.5 text-green-400 font-medium">
+                <CheckCircle2 className="w-4 h-4" /> Password updated successfully.
+              </span>
+            ) : (
+              <span>Use a strong password of at least 8 characters.</span>
+            )}
+          </div>
         )}
       </div>
 

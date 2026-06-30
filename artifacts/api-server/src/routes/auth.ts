@@ -247,6 +247,39 @@ router.post("/auth/forgot-password", passwordResetLimiter, async (req, res) => {
   }
 });
 
+router.post("/auth/change-password", authLimiter, async (req, res) => {
+  if (!req.session?.userId) {
+    res.status(401).json({ error: "Not authenticated" });
+    return;
+  }
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: "currentPassword and newPassword are required" });
+    return;
+  }
+  if (String(newPassword).length < 8) {
+    res.status(400).json({ error: "New password must be at least 8 characters" });
+    return;
+  }
+  try {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, req.session.userId)).limit(1);
+    if (!user) { res.status(404).json({ error: "User not found" }); return; }
+
+    const valid = await bcrypt.compare(String(currentPassword), user.passwordHash);
+    if (!valid) {
+      res.status(400).json({ error: "Current password is incorrect" });
+      return;
+    }
+
+    const passwordHash = await bcrypt.hash(String(newPassword), 12);
+    await db.update(usersTable).set({ passwordHash }).where(eq(usersTable.id, user.id));
+    res.json({ ok: true });
+  } catch (err) {
+    req.log.error(err, "change-password error");
+    res.status(500).json({ error: "Failed to change password" });
+  }
+});
+
 router.post("/auth/reset-password", passwordResetLimiter, async (req, res) => {
   const { token, password } = req.body;
   if (!token || !password) { res.status(400).json({ error: "Token and password are required" }); return; }
