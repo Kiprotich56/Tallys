@@ -12,6 +12,7 @@ import BookPage from "@/pages/book";
 import TeamPage from "@/pages/team";
 import ReviewsPage from "@/pages/reviews";
 import LoginPage from "@/pages/login";
+import ResetPasswordPage from "@/pages/reset-password";
 
 // Portal
 import PortalDashboard from "@/pages/portal";
@@ -89,6 +90,7 @@ function Router() {
 
       {/* Standalone pages (no public layout) */}
       <Route path="/login" component={LoginPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
 
       {/* Public & Portal Routes */}
       <Route>
