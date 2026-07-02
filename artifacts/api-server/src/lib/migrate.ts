@@ -66,6 +66,10 @@ export async function runMigrations() {
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
 
+      -- Reviews: allow anonymous submissions (nullable customer_id + reviewer_name)
+      ALTER TABLE reviews ALTER COLUMN customer_id DROP NOT NULL;
+      ALTER TABLE reviews ADD COLUMN IF NOT EXISTS reviewer_name TEXT;
+
       -- Indexes for performance
       CREATE INDEX IF NOT EXISTS idx_commissions_staff_id ON commissions(staff_id);
       CREATE INDEX IF NOT EXISTS idx_commissions_payment_status ON commissions(payment_status);

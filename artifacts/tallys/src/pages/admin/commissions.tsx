@@ -11,7 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 
-const API = (path: string) => `/api${path}`;
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
+const API = (path: string) => `${API_BASE}/api${path}`;
 const GOLD = "#D4AF37";
 const COLORS = ["#D4AF37", "#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4"];
 
@@ -424,9 +425,10 @@ function ServiceCommissionSettings() {
   const { toast } = useToast();
 
   useEffect(() => {
+    const BASE = import.meta.env.VITE_API_URL ?? "";
     Promise.all([
-      fetch("/api/services", { credentials: "include" }).then(r => r.json()),
-      fetch("/api/commissions/service-rates", { credentials: "include" }).then(r => r.json()),
+      fetch(`${BASE}/api/services`, { credentials: "include" }).then(r => r.json()),
+      fetch(`${BASE}/api/commissions/service-rates`, { credentials: "include" }).then(r => r.json()),
     ]).then(([svcs, ratesArr]) => {
       setServices(svcs);
       const map: Record<number, number> = {};
@@ -438,7 +440,8 @@ function ServiceCommissionSettings() {
   async function saveRate(serviceId: number, pct: number) {
     setSaving(serviceId);
     try {
-      const res = await fetch("/api/commissions/service-rates", {
+      const BASE = import.meta.env.VITE_API_URL ?? "";
+      const res = await fetch(`${BASE}/api/commissions/service-rates`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

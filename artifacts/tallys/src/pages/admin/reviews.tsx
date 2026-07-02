@@ -1,15 +1,17 @@
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useApproveReview, useHideReview, getListReviewsQueryKey } from "@workspace/api-client-react";
-import { Star, Check, EyeOff, RefreshCw } from "lucide-react";
+import { Star, Check, EyeOff, RefreshCw, ArrowUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 
 type ReviewStatus = "all" | "pending" | "approved" | "hidden";
+type SortKey = "newest" | "oldest" | "rating_high" | "rating_low";
 
 export default function AdminReviews() {
   const [filter, setFilter] = useState<ReviewStatus>("all");
+  const [sort, setSort] = useState<SortKey>("newest");
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -20,7 +22,7 @@ export default function AdminReviews() {
 
   const fetchReviews = () => {
     setLoading(true);
-    fetch("/api/admin/reviews")
+    fetch("/api/admin/reviews", { credentials: "include" })
       .then(r => r.json())
       .then(data => { setReviews(Array.isArray(data) ? data : []); setLoading(false); })
       .catch(() => { setReviews([]); setLoading(false); });
@@ -50,7 +52,15 @@ export default function AdminReviews() {
     });
   };
 
-  const filtered = reviews.filter(r => filter === "all" || r.status === filter);
+  const sorted = [...reviews].sort((a, b) => {
+    if (sort === "newest") return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    if (sort === "oldest") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    if (sort === "rating_high") return b.rating - a.rating;
+    if (sort === "rating_low") return a.rating - b.rating;
+    return 0;
+  });
+
+  const filtered = sorted.filter(r => filter === "all" || r.status === filter);
 
   const counts = {
     all: reviews.length,
@@ -95,6 +105,29 @@ export default function AdminReviews() {
         ))}
       </div>
 
+      <div className="flex items-center gap-2">
+        <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
+        <span className="text-sm text-muted-foreground">Sort by:</span>
+        {([
+          { key: "newest", label: "Newest" },
+          { key: "oldest", label: "Oldest" },
+          { key: "rating_high", label: "Highest Rating" },
+          { key: "rating_low", label: "Lowest Rating" },
+        ] as { key: SortKey; label: string }[]).map(opt => (
+          <button
+            key={opt.key}
+            onClick={() => setSort(opt.key)}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+              sort === opt.key
+                ? "border-primary bg-primary/10 text-primary font-medium"
+                : "border-border text-muted-foreground hover:border-primary/50"
+            }`}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+
       <div className="space-y-4">
         {loading ? (
           <div className="text-center text-muted-foreground py-12">Loading reviews...</div>
@@ -112,7 +145,7 @@ export default function AdminReviews() {
                       {review.customerName?.[0]?.toUpperCase() ?? "?"}
                     </div>
                     <div>
-                      <div className="font-bold">{review.customerName || "Unknown Customer"}</div>
+                      <div className="font-bold">{review.customerName || "Anonymous"}</div>
                       <div className="text-xs text-muted-foreground">
                         {review.serviceName && <span className="text-primary">{review.serviceName}</span>}
                         {review.createdAt && (

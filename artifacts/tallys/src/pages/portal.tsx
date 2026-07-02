@@ -31,7 +31,7 @@ function calcProgress(tier: string, visits: number): number {
   return Math.round(((visits - min) / (max - min)) * 100);
 }
 
-type ResendState = "idle" | "sending" | "sent" | "error";
+type ResendState = "idle" | "sending" | "sent" | "no_smtp" | "error";
 
 export default function PortalDashboard() {
   const { user, logout } = useAuth();
@@ -87,6 +87,8 @@ export default function PortalDashboard() {
     }
   };
 
+  const [verificationUrl, setVerificationUrl] = useState<string | null>(null);
+
   const handleResendVerification = async () => {
     setResendState("sending");
     try {
@@ -96,7 +98,13 @@ export default function PortalDashboard() {
         credentials: "include",
       });
       if (!res.ok) throw new Error();
-      setResendState("sent");
+      const data = await res.json();
+      if (data.emailSent === false && data.verificationUrl) {
+        setVerificationUrl(data.verificationUrl);
+        setResendState("no_smtp");
+      } else {
+        setResendState("sent");
+      }
     } catch {
       setResendState("error");
     }
@@ -198,15 +206,36 @@ export default function PortalDashboard() {
             <p className="text-sm font-medium text-amber-200">
               Please verify your email address
             </p>
-            <p className="text-xs text-amber-300/80 mt-0.5">
-              We sent a link to <strong>{user.email}</strong>. Check your inbox (and spam folder).
-            </p>
+            {resendState === "no_smtp" && verificationUrl ? (
+              <div className="mt-2 space-y-1">
+                <p className="text-xs text-amber-300/80">
+                  Email delivery is not yet configured on the server. Use this link to verify manually:
+                </p>
+                <a
+                  href={verificationUrl}
+                  className="text-xs text-primary underline break-all"
+                >
+                  Click here to verify your email
+                </a>
+              </div>
+            ) : (
+              <p className="text-xs text-amber-300/80 mt-0.5">
+                We sent a link to <strong>{user.email}</strong>. Check your inbox (and spam folder).
+              </p>
+            )}
           </div>
           <div className="shrink-0">
             {resendState === "sent" ? (
               <span className="inline-flex items-center gap-1.5 text-xs text-green-400 font-medium">
                 <CheckCircle2 className="w-4 h-4" /> Sent!
               </span>
+            ) : resendState === "no_smtp" ? (
+              <button
+                onClick={() => { setResendState("idle"); setVerificationUrl(null); }}
+                className="text-xs text-amber-300/60 underline"
+              >
+                Retry
+              </button>
             ) : resendState === "error" ? (
               <button
                 onClick={() => setResendState("idle")}
@@ -257,6 +286,7 @@ export default function PortalDashboard() {
                   <p className="text-sm font-semibold text-primary mt-1">KSh {app.totalKes.toLocaleString()}</p>
                 </div>
                 <div className="flex flex-col sm:items-end gap-2">
+<<<<<<< HEAD
                   <span className="inline-block px-2 py-1 bg-primary/10 text-primary text-xs rounded uppercase tracking-wider font-bold">
                     {app.status}
                   </span>
@@ -267,6 +297,22 @@ export default function PortalDashboard() {
                   }`}>
                     {(app as any).paymentStatus === 'paid' ? '✓ Payment Received' : '⏳ Payment Pending at Studio'}
                   </span>
+=======
+                  {app.status === "pending" ? (
+                    <span className="inline-block px-2 py-1 bg-amber-500/10 text-amber-400 text-xs rounded uppercase tracking-wider font-bold">
+                      Payment Pending
+                    </span>
+                  ) : app.status === "confirmed" ? (
+                    <span className="inline-block px-2 py-1 bg-green-500/10 text-green-400 text-xs rounded uppercase tracking-wider font-bold">
+                      Confirmed
+                    </span>
+                  ) : (
+                    <span className="inline-block px-2 py-1 bg-primary/10 text-primary text-xs rounded uppercase tracking-wider font-bold">
+                      {app.status}
+                    </span>
+                  )}
+                  <p className="text-xs text-muted-foreground">Pay at studio on arrival</p>
+>>>>>>> 1783acb (Complete commission and review management features)
                   <Button variant="outline" size="sm" onClick={() => setCancelId(app.id)} disabled={cancelAppointment.isPending}>
                     Cancel
                   </Button>

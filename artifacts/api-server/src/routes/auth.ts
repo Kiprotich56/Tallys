@@ -219,9 +219,9 @@ router.post("/auth/resend-verification", authLimiter, async (req, res) => {
       : [null];
 
     const verificationUrl = `${API_URL}/api/auth/verify-email?token=${verificationToken}`;
-    await sendVerificationEmail(user.email, { name: customer?.name ?? user.email, verificationUrl });
+    const emailSent = await sendVerificationEmail(user.email, { name: customer?.name ?? user.email, verificationUrl });
 
-    res.json({ ok: true });
+    res.json({ ok: true, emailSent, verificationUrl: emailSent ? undefined : verificationUrl });
   } catch (err) {
     req.log.error(err, "resend-verification error");
     res.status(500).json({ error: "Failed to resend verification email" });
