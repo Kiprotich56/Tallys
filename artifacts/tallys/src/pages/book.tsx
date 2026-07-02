@@ -24,11 +24,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
-<<<<<<< HEAD
   Clock,
-=======
-  AlertCircle,
->>>>>>> 1783acb (Complete commission and review management features)
 } from "lucide-react";
 
 // Steps: 1=Service, 2=Staff, 3=DateTime, 4=Details, 5=Confirm
@@ -129,10 +125,6 @@ export default function BookPage() {
         },
       });
 
-<<<<<<< HEAD
-=======
-      setCreatedAppointmentId(appointment.id);
->>>>>>> 1783acb (Complete commission and review management features)
       setStep(5);
     } catch {
       alert("Failed to reserve your slot. Please try again.");
