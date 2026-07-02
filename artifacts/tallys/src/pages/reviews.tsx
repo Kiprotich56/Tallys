@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-<<<<<<< HEAD
 import { useListReviews } from "@workspace/api-client-react";
 import { Star, Quote, Send, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,44 +7,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
 interface Service { id: number; name: string; isActive: boolean }
-=======
-import { useListReviews, useListServices } from "@workspace/api-client-react";
-import { Star, Quote, Send, CheckCircle2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-
-const API_BASE = import.meta.env.VITE_API_URL ?? "";
-
-function StarPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-  const [hovered, setHovered] = useState(0);
-  return (
-    <div className="flex gap-1">
-      {Array.from({ length: 5 }).map((_, i) => {
-        const star = i + 1;
-        return (
-          <button
-            key={star}
-            type="button"
-            onClick={() => onChange(star)}
-            onMouseEnter={() => setHovered(star)}
-            onMouseLeave={() => setHovered(0)}
-            className="p-0.5 transition-transform hover:scale-110"
-            aria-label={`${star} star`}
-          >
-            <Star
-              className={`w-7 h-7 transition-colors ${
-                star <= (hovered || value) ? "fill-primary text-primary" : "fill-muted/20 text-muted/40"
-              }`}
-            />
-          </button>
-        );
-      })}
-    </div>
-  );
-}
->>>>>>> 1783acb (Complete commission and review management features)
 
 export default function ReviewsPage() {
   const { data: reviews, isLoading } = useListReviews();
@@ -68,24 +29,7 @@ export default function ReviewsPage() {
       .then((data: Service[]) => setServices(data.filter(s => s.isActive)))
       .catch(() => {});
   }, []);
-=======
-  const [formName, setFormName] = useState("");
-  const [formServiceId, setFormServiceId] = useState<string>("");
-  const [formRating, setFormRating] = useState(0);
-  const [formComment, setFormComment] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [submitState, setSubmitState] = useState<"idle" | "success" | "error">("idle");
-  const [submitError, setSubmitError] = useState("");
 
-  const fetchReviews = () => {
-    fetch(`${API_BASE}/api/reviews`)
-      .then(r => r.json())
-      .then((data: any[]) => setDirectReviews(data))
-      .catch(() => setDirectReviews([]));
-  };
-
-  useEffect(() => { fetchReviews(); }, []);
->>>>>>> 1783acb (Complete commission and review management features)
 
   const displayReviews = (reviews && reviews.length > 0)
     ? reviews.filter(r => r.status === "approved")
@@ -95,7 +39,6 @@ export default function ReviewsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-<<<<<<< HEAD
     if (!form.name.trim() || !form.comment.trim()) return;
     setSubmitting(true);
     try {
@@ -113,37 +56,7 @@ export default function ReviewsPage() {
         setSubmitted(true);
         setForm({ name: "", serviceId: "", comment: "", rating: 5 });
       }
-=======
-    if (!formName.trim()) { setSubmitError("Please enter your name."); return; }
-    if (formRating === 0) { setSubmitError("Please select a star rating."); return; }
-    setSubmitError("");
-    setSubmitting(true);
-    try {
-      const body: Record<string, any> = {
-        name: formName.trim(),
-        rating: formRating,
-        comment: formComment.trim() || undefined,
-      };
-      if (formServiceId) body.serviceId = Number(formServiceId);
 
-      const res = await fetch(`${API_BASE}/api/reviews/public`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (res.ok) {
-        setSubmitState("success");
-        setFormName("");
-        setFormServiceId("");
-        setFormRating(0);
-        setFormComment("");
-      } else {
-        const err = await res.json().catch(() => ({}));
-        setSubmitError(err.error ?? "Failed to submit review. Please try again.");
-      }
-    } catch {
-      setSubmitError("Network error. Please check your connection and try again.");
->>>>>>> 1783acb (Complete commission and review management features)
     } finally {
       setSubmitting(false);
     }
