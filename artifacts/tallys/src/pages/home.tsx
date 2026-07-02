@@ -73,15 +73,26 @@ export default function Home() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="bg-background border border-border p-6 rounded-lg hover:border-primary/50 transition-colors"
+                className="bg-background border border-border rounded-lg hover:border-primary/50 transition-colors overflow-hidden"
               >
-                <h3 className="text-xl font-bold mb-2">{service.name}</h3>
-                <p className="text-muted-foreground mb-4 h-12 line-clamp-2">
-                  {service.description || "Premium service performed by our master barbers."}
-                </p>
-                <div className="flex justify-between items-center text-sm font-medium">
-                  <span className="text-primary">KSh {service.priceKes.toLocaleString()}</span>
-                  <span className="text-muted-foreground">{service.durationMinutes} mins</span>
+                {service.imageUrl && (
+                  <div className="h-48 overflow-hidden">
+                    <img
+                      src={service.imageUrl}
+                      alt={service.name}
+                      className="w-full h-full object-cover transition-transform duration-500 hover:scale-105"
+                    />
+                  </div>
+                )}
+                <div className="p-6">
+                  <h3 className="text-xl font-bold mb-2">{service.name}</h3>
+                  <p className="text-muted-foreground mb-4 h-12 line-clamp-2">
+                    {service.description || "Premium service performed by our master barbers."}
+                  </p>
+                  <div className="flex justify-between items-center text-sm font-medium">
+                    <span className="text-primary">KSh {service.priceKes.toLocaleString()}</span>
+                    <span className="text-muted-foreground">{service.durationMinutes} mins</span>
+                  </div>
                 </div>
               </motion.div>
             ))}

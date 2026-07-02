@@ -15,5 +15,7 @@ export interface Service {
   priceKes: number;
   durationMinutes: number;
   isActive: boolean;
+  /** @nullable */
+  imageUrl?: string | null;
   createdAt?: string;
 }

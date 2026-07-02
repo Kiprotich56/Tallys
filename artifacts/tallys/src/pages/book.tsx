@@ -177,19 +177,30 @@ export default function BookPage() {
                     <button
                       key={service.id}
                       onClick={() => handleServiceSelect(service.id)}
-                      className={`text-left p-4 rounded-lg border transition-all ${
+                      className={`text-left rounded-lg border transition-all overflow-hidden ${
                         selectedServiceId === service.id
                           ? "border-primary bg-primary/5 ring-1 ring-primary"
                           : "border-border hover:border-primary/50 bg-background"
                       }`}
                     >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="font-bold">{service.name}</div>
-                        <div className="text-primary font-medium">
-                          KSh {service.priceKes.toLocaleString()}
+                      {service.imageUrl && (
+                        <div className="h-32 overflow-hidden">
+                          <img
+                            src={service.imageUrl}
+                            alt={service.name}
+                            className="w-full h-full object-cover"
+                          />
                         </div>
+                      )}
+                      <div className="p-4">
+                        <div className="flex justify-between items-start mb-1">
+                          <div className="font-bold">{service.name}</div>
+                          <div className="text-primary font-medium text-sm">
+                            KSh {service.priceKes.toLocaleString()}
+                          </div>
+                        </div>
+                        <div className="text-sm text-muted-foreground">{service.durationMinutes} mins</div>
                       </div>
-                      <div className="text-sm text-muted-foreground">{service.durationMinutes} mins</div>
                     </button>
                   ))}
               </div>

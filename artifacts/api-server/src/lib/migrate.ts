@@ -82,6 +82,31 @@ export async function runMigrations() {
       CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);
       CREATE INDEX IF NOT EXISTS idx_appointments_reminder ON appointments(date, reminder_sent);
       CREATE INDEX IF NOT EXISTS idx_customers_email ON customers(email);
+
+      -- Service images
+      ALTER TABLE services ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+      UPDATE services SET image_url = 'https://images.squarespace-cdn.com/content/v1/6266605f2774c536bff0650a/1700556119441-423LUOKRP0CDZM0CXQUR/Drop+Fade+Haircut+(San+Francisco+Barbershop).png' WHERE name = 'Classic Gentleman''s Cut' AND image_url IS NULL;
+      UPDATE services SET image_url = 'https://images.squarespace-cdn.com/content/v1/6266605f2774c536bff0650a/1700556122113-R90V0E0DX4TVYAFHCTPY/Low+Shadow+Fade+Haircut+(San+Francisco+Barbershop).png' WHERE name = 'Skin Fade' AND image_url IS NULL;
+      UPDATE services SET image_url = 'https://www.manhattanbarbershopnyc.com/_next/image?url=/images/style-guide/low-fade-professional-style.webp&w=1920&q=75&dpl=dpl_71H5SjqfCGokXtjA5RnCU9rRLKxK' WHERE name = 'Taper Fade' AND image_url IS NULL;
+      UPDATE services SET image_url = 'https://images.squarespace-cdn.com/content/v1/6266605f2774c536bff0650a/1700556119441-423LUOKRP0CDZM0CXQUR/Drop+Fade+Haircut+(San+Francisco+Barbershop).png' WHERE name = 'Caesar Cut' AND image_url IS NULL;
+      UPDATE services SET image_url = 'https://images.squarespace-cdn.com/content/v1/6266605f2774c536bff0650a/1700556119441-423LUOKRP0CDZM0CXQUR/Drop+Fade+Haircut+(San+Francisco+Barbershop).png' WHERE name = 'Kids'' Haircut' AND image_url IS NULL;
+
+      UPDATE services SET image_url = 'https://www.therazordoc.com/wp-content/uploads/2024/08/istockphoto-872361244-612x612-1.webp' WHERE category = 'Beard Services' AND image_url IS NULL;
+
+      UPDATE services SET image_url = 'https://images.pexels.com/photos/3993331/pexels-photo-3993331.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500' WHERE name IN ('Deep Conditioning Treatment', 'Scalp Treatment', 'Keratin Smoothing') AND image_url IS NULL;
+      UPDATE services SET image_url = 'https://images.pexels.com/photos/8468036/pexels-photo-8468036.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500' WHERE name IN ('Hair Coloring', 'Highlights & Balayage') AND image_url IS NULL;
+
+      UPDATE services SET image_url = 'https://thumbs.dreamstime.com/b/skin-body-care-woman-getting-beauty-spa-face-massage-treatmen-close-up-young-treatment-salon-facial-treatment-63739125.jpg' WHERE category = 'Skincare' AND image_url IS NULL;
+
+      UPDATE services SET image_url = 'https://images.pexels.com/photos/18112333/pexels-photo-18112333/free-photo-of-woman-doing-her-nails-at-the-beauty-salon.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500' WHERE category = 'Manicure & Pedicure' AND image_url IS NULL;
+
+      UPDATE services SET image_url = 'https://i.pinimg.com/originals/a8/8a/83/a88a8326c18ab4b8476141794f305b39.jpg' WHERE name IN ('Braiding', 'Dreadlock Maintenance', 'Updo & Special Occasion') AND image_url IS NULL;
+      UPDATE services SET image_url = 'https://images.pexels.com/photos/3993331/pexels-photo-3993331.jpeg?auto=compress&cs=tinysrgb&dpr=1&w=500' WHERE name = 'Blow Dry & Style' AND image_url IS NULL;
+
+      UPDATE services SET image_url = 'https://esthetichaus.com/wp-content/uploads/2023/09/fw1.jpg' WHERE category = 'Waxing' AND image_url IS NULL;
+
+      UPDATE services SET image_url = 'https://i0.wp.com/paradiseadventures.live/wp-content/uploads/2025/06/House-of-Barbaard_1.107.1.jpg?resize=1024,576&ssl=1' WHERE category = 'Combos' AND image_url IS NULL;
     `);
     logger.info("Database migrations completed successfully");
   } catch (err) {
