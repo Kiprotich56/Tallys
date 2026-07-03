@@ -46,7 +46,7 @@ router.get("/admin/db/overview", requireAdmin, async (_req, res): Promise<void> 
 });
 
 router.get("/admin/db/:table", requireAdmin, async (req, res): Promise<void> => {
-  const { table } = req.params;
+  const table = String(req.params.table);
   if (!isTableName(table)) {
     res.status(404).json({ error: `Unknown table: ${table}` });
     return;
@@ -56,7 +56,8 @@ router.get("/admin/db/:table", requireAdmin, async (req, res): Promise<void> => 
 });
 
 router.delete("/admin/db/:table/:id", requireAdmin, async (req, res): Promise<void> => {
-  const { table, id } = req.params;
+  const table = String(req.params.table);
+  const { id } = req.params;
   if (!isTableName(table)) {
     res.status(404).json({ error: `Unknown table: ${table}` });
     return;
@@ -72,7 +73,8 @@ router.delete("/admin/db/:table/:id", requireAdmin, async (req, res): Promise<vo
 });
 
 router.patch("/admin/db/:table/:id", requireAdmin, async (req, res): Promise<void> => {
-  const { table, id } = req.params;
+  const table = String(req.params.table);
+  const { id } = req.params;
   if (!isTableName(table)) {
     res.status(404).json({ error: `Unknown table: ${table}` });
     return;

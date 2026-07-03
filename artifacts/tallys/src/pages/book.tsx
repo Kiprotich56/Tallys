@@ -424,7 +424,6 @@ export default function BookPage() {
               <span className="text-foreground font-semibold">{getStaffName()}</span> on{" "}
               {selectedDate ? format(selectedDate, "MMM do") : ""} at {selectedTimeSlot} is confirmed.
             </p>
-<<<<<<< HEAD
 
             {/* Payment pending notice */}
             <div className="max-w-sm mx-auto mb-8 mt-4 bg-amber-900/20 border border-amber-700/40 rounded-lg p-4 flex items-start gap-3">
@@ -437,12 +436,6 @@ export default function BookPage() {
               </div>
             </div>
 
-=======
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm font-medium mb-6">
-              <AlertCircle className="w-4 h-4" />
-              Payment of <span className="font-bold text-primary">KSh {getServicePrice()}</span> due at the studio on arrival
-            </div>
->>>>>>> 1783acb (Complete commission and review management features)
             <div className="flex justify-center gap-4">
               <Button asChild variant="outline">
                 <Link href="/">Return Home</Link>

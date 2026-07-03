@@ -7,6 +7,9 @@ import {
   useGetLoyalty,
   useCancelAppointment,
   useUpdateCustomer,
+  getGetCustomerQueryKey,
+  getGetCustomerAppointmentsQueryKey,
+  getGetLoyaltyQueryKey,
 } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
@@ -112,9 +115,9 @@ export default function PortalDashboard() {
 
   const customerId = user?.customerId ?? 0;
 
-  const { data: customer } = useGetCustomer(customerId, { query: { enabled: customerId > 0 } });
-  const { data: appointments, refetch: refetchAppointments } = useGetCustomerAppointments(customerId, { query: { enabled: customerId > 0 } });
-  const { data: loyalty } = useGetLoyalty(customerId, { query: { enabled: customerId > 0 } });
+  const { data: customer } = useGetCustomer(customerId, { query: { enabled: customerId > 0, queryKey: getGetCustomerQueryKey(customerId) } });
+  const { data: appointments, refetch: refetchAppointments } = useGetCustomerAppointments(customerId, { query: { enabled: customerId > 0, queryKey: getGetCustomerAppointmentsQueryKey(customerId) } });
+  const { data: loyalty } = useGetLoyalty(customerId, { query: { enabled: customerId > 0, queryKey: getGetLoyaltyQueryKey(customerId) } });
 
   const cancelAppointment = useCancelAppointment();
   const updateCustomer = useUpdateCustomer();
@@ -286,7 +289,6 @@ export default function PortalDashboard() {
                   <p className="text-sm font-semibold text-primary mt-1">KSh {app.totalKes.toLocaleString()}</p>
                 </div>
                 <div className="flex flex-col sm:items-end gap-2">
-<<<<<<< HEAD
                   <span className="inline-block px-2 py-1 bg-primary/10 text-primary text-xs rounded uppercase tracking-wider font-bold">
                     {app.status}
                   </span>
@@ -297,22 +299,6 @@ export default function PortalDashboard() {
                   }`}>
                     {(app as any).paymentStatus === 'paid' ? '✓ Payment Received' : '⏳ Payment Pending at Studio'}
                   </span>
-=======
-                  {app.status === "pending" ? (
-                    <span className="inline-block px-2 py-1 bg-amber-500/10 text-amber-400 text-xs rounded uppercase tracking-wider font-bold">
-                      Payment Pending
-                    </span>
-                  ) : app.status === "confirmed" ? (
-                    <span className="inline-block px-2 py-1 bg-green-500/10 text-green-400 text-xs rounded uppercase tracking-wider font-bold">
-                      Confirmed
-                    </span>
-                  ) : (
-                    <span className="inline-block px-2 py-1 bg-primary/10 text-primary text-xs rounded uppercase tracking-wider font-bold">
-                      {app.status}
-                    </span>
-                  )}
-                  <p className="text-xs text-muted-foreground">Pay at studio on arrival</p>
->>>>>>> 1783acb (Complete commission and review management features)
                   <Button variant="outline" size="sm" onClick={() => setCancelId(app.id)} disabled={cancelAppointment.isPending}>
                     Cancel
                   </Button>

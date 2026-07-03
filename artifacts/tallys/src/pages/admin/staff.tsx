@@ -232,7 +232,7 @@ export default function AdminStaff() {
       name: values.name,
       role: values.role,
       bio: values.bio,
-      photoUrl: values.photoUrl || null,
+      photoUrl: values.photoUrl || undefined,
       commissionPct: values.commissionPct,
       isActive: values.isActive,
       specializations: values.specializationsRaw.split(",").map(s => s.trim()).filter(Boolean),

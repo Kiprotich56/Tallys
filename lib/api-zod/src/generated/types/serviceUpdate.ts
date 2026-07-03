@@ -14,4 +14,5 @@ export interface ServiceUpdate {
   priceKes?: number;
   durationMinutes?: number;
   isActive?: boolean;
+  imageUrl?: string;
 }

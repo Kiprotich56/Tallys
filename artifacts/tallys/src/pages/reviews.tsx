@@ -1,41 +1,20 @@
-import { useState, useEffect } from "react";
-import { useListReviews } from "@workspace/api-client-react";
+import { useState } from "react";
+import { useListReviews, useListServices } from "@workspace/api-client-react";
 import { Star, Quote, Send, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
-interface Service { id: number; name: string; isActive: boolean }
-
 export default function ReviewsPage() {
   const { data: reviews, isLoading } = useListReviews();
   const { data: services } = useListServices();
-  const [directReviews, setDirectReviews] = useState<any[] | null>(null);
-  const [services, setServices] = useState<Service[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({ name: "", serviceId: "", comment: "", rating: 5 });
 
-<<<<<<< HEAD
-  useEffect(() => {
-    fetch("/api/reviews")
-      .then(r => r.json())
-      .then((data: any[]) => setDirectReviews(data))
-      .catch(() => setDirectReviews([]));
-    fetch("/api/services")
-      .then(r => r.json())
-      .then((data: Service[]) => setServices(data.filter(s => s.isActive)))
-      .catch(() => {});
-  }, []);
-
-
-  const displayReviews = (reviews && reviews.length > 0)
-    ? reviews.filter(r => r.status === "approved")
-    : (directReviews ?? []).filter((r: any) => r.status === "approved");
-
-  const loading = isLoading && directReviews === null;
+  const displayReviews = (reviews ?? []).filter((r) => r.status === "approved");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +35,6 @@ export default function ReviewsPage() {
         setSubmitted(true);
         setForm({ name: "", serviceId: "", comment: "", rating: 5 });
       }
-
     } finally {
       setSubmitting(false);
     }
@@ -110,7 +88,7 @@ export default function ReviewsPage() {
                 className="mt-1 w-full h-9 px-3 rounded-md border border-input bg-background text-sm focus:outline-none focus:ring-1 focus:ring-ring"
               >
                 <option value="">— Select a service —</option>
-                {services.map(s => (
+                {services?.filter(s => s.isActive).map(s => (
                   <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
               </select>
@@ -160,11 +138,11 @@ export default function ReviewsPage() {
         </div>
       )}
 
-      {loading ? (
+      {isLoading ? (
         <div className="text-center text-muted-foreground">Loading reviews...</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
-          {displayReviews.map((review: any) => (
+          {displayReviews.map((review) => (
             <div key={review.id} className="bg-card border border-border p-8 rounded-lg relative">
               <Quote className="absolute top-6 right-6 w-8 h-8 text-muted/20" />
               <div className="flex gap-1 mb-4">
@@ -192,93 +170,6 @@ export default function ReviewsPage() {
           )}
         </div>
       )}
-
-      {/* Review submission form */}
-      <div className="max-w-xl mx-auto mt-20">
-        <div className="bg-card border border-border rounded-lg p-8">
-          <h2 className="text-2xl font-serif font-bold mb-2">Share Your Experience</h2>
-          <p className="text-muted-foreground text-sm mb-6">
-            Your review will be visible after our team approves it. Thank you for your feedback!
-          </p>
-
-          {submitState === "success" ? (
-            <div className="flex flex-col items-center py-8 text-center gap-4">
-              <CheckCircle2 className="w-12 h-12 text-green-500" />
-              <div>
-                <p className="text-lg font-bold text-green-400 mb-1">Review Submitted!</p>
-                <p className="text-muted-foreground text-sm">
-                  Thank you for sharing your experience. Your review is pending approval and will appear on this page shortly.
-                </p>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => setSubmitState("idle")}>
-                Write Another Review
-              </Button>
-            </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-5">
-              <div>
-                <Label htmlFor="review-name">Your Name *</Label>
-                <Input
-                  id="review-name"
-                  value={formName}
-                  onChange={e => setFormName(e.target.value)}
-                  placeholder="e.g. James Mwangi"
-                  className="mt-1"
-                  required
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="review-service">Service Received</Label>
-                <select
-                  id="review-service"
-                  value={formServiceId}
-                  onChange={e => setFormServiceId(e.target.value)}
-                  className="mt-1 w-full h-10 px-3 rounded-md border border-input bg-background text-sm"
-                >
-                  <option value="">Select a service (optional)</option>
-                  {services?.filter(s => s.isActive).map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <Label>Rating *</Label>
-                <div className="mt-2">
-                  <StarPicker value={formRating} onChange={setFormRating} />
-                  {formRating > 0 && (
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {["", "Poor", "Fair", "Good", "Very Good", "Excellent"][formRating]}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="review-comment">Your Comment</Label>
-                <Textarea
-                  id="review-comment"
-                  value={formComment}
-                  onChange={e => setFormComment(e.target.value)}
-                  placeholder="Tell us about your experience at Tally's..."
-                  className="mt-1 resize-none"
-                  rows={4}
-                />
-              </div>
-
-              {submitError && (
-                <p className="text-sm text-destructive">{submitError}</p>
-              )}
-
-              <Button type="submit" className="w-full gap-2" disabled={submitting}>
-                <Send className="w-4 h-4" />
-                {submitting ? "Submitting..." : "Submit Review"}
-              </Button>
-            </form>
-          )}
-        </div>
-      </div>
     </div>
   );
 }

@@ -18,6 +18,8 @@ export interface Service {
   priceKes: number;
   durationMinutes: number;
   isActive: boolean;
+  /** @nullable */
+  imageUrl?: string | null;
   createdAt?: string;
 }
 
@@ -29,6 +31,7 @@ export interface ServiceInput {
   priceKes: number;
   durationMinutes: number;
   isActive?: boolean;
+  imageUrl?: string;
 }
 
 export interface ServiceUpdate {
@@ -39,6 +42,7 @@ export interface ServiceUpdate {
   priceKes?: number;
   durationMinutes?: number;
   isActive?: boolean;
+  imageUrl?: string;
 }
 
 export interface Staff {

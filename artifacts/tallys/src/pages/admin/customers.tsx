@@ -162,7 +162,7 @@ export default function AdminCustomers() {
 
   const onEditSubmit = (values: EditForm) => {
     if (!selectedCustomer) return;
-    updateCustomer.mutate({ id: selectedCustomer.id, data: { ...values, email: values.email || null, gender: values.gender || null } }, {
+    updateCustomer.mutate({ id: selectedCustomer.id, data: { ...values, email: values.email || undefined, gender: values.gender || undefined } }, {
       onSuccess: (updated) => {
         queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey() });
         setSelectedCustomer(updated);
@@ -248,7 +248,9 @@ export default function AdminCustomers() {
                       </div>
                       {customer.name}
                       {(customer as any).adminNotes && (
-                        <StickyNote className="w-3 h-3 text-amber-500" title="Has admin notes" />
+                        <span title="Has admin notes">
+                          <StickyNote className="w-3 h-3 text-amber-500" />
+                        </span>
                       )}
                     </div>
                   </td>

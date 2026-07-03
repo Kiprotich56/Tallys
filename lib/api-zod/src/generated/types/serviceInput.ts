@@ -14,4 +14,5 @@ export interface ServiceInput {
   priceKes: number;
   durationMinutes: number;
   isActive?: boolean;
+  imageUrl?: string;
 }

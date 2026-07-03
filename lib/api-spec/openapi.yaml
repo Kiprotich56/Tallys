@@ -824,6 +824,7 @@ components:
         priceKes:     { type: integer }
         durationMinutes: { type: integer }
         isActive:     { type: boolean }
+        imageUrl:     { type: ["string", "null"] }
         createdAt:    { type: string }
 
     ServiceInput:
@@ -836,6 +837,7 @@ components:
         priceKes:     { type: integer }
         durationMinutes: { type: integer }
         isActive:     { type: boolean }
+        imageUrl:     { type: string }
 
     ServiceUpdate:
       type: object
@@ -846,6 +848,7 @@ components:
         priceKes:     { type: integer }
         durationMinutes: { type: integer }
         isActive:     { type: boolean }
+        imageUrl:     { type: string }
 
     # ─── STAFF ───
     Staff:

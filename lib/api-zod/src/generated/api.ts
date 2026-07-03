@@ -87,6 +87,7 @@ export const ListServicesResponseItem = zod.object({
   "priceKes": zod.number(),
   "durationMinutes": zod.number(),
   "isActive": zod.boolean(),
+  "imageUrl": zod.string().nullish(),
   "createdAt": zod.string().optional()
 })
 export const ListServicesResponse = zod.array(ListServicesResponseItem)
@@ -104,7 +105,8 @@ export const CreateServiceBody = zod.object({
   "category": zod.string(),
   "priceKes": zod.number(),
   "durationMinutes": zod.number(),
-  "isActive": zod.boolean().optional()
+  "isActive": zod.boolean().optional(),
+  "imageUrl": zod.string().optional()
 })
 
 export const CreateServiceResponse = zod.object({
@@ -115,6 +117,7 @@ export const CreateServiceResponse = zod.object({
   "priceKes": zod.number(),
   "durationMinutes": zod.number(),
   "isActive": zod.boolean(),
+  "imageUrl": zod.string().nullish(),
   "createdAt": zod.string().optional()
 })
 
@@ -131,6 +134,7 @@ export const GetServiceResponse = zod.object({
   "priceKes": zod.number(),
   "durationMinutes": zod.number(),
   "isActive": zod.boolean(),
+  "imageUrl": zod.string().nullish(),
   "createdAt": zod.string().optional()
 })
 
@@ -148,7 +152,8 @@ export const UpdateServiceBody = zod.object({
   "category": zod.string().optional(),
   "priceKes": zod.number().optional(),
   "durationMinutes": zod.number().optional(),
-  "isActive": zod.boolean().optional()
+  "isActive": zod.boolean().optional(),
+  "imageUrl": zod.string().optional()
 })
 
 export const UpdateServiceResponse = zod.object({
@@ -159,6 +164,7 @@ export const UpdateServiceResponse = zod.object({
   "priceKes": zod.number(),
   "durationMinutes": zod.number(),
   "isActive": zod.boolean(),
+  "imageUrl": zod.string().nullish(),
   "createdAt": zod.string().optional()
 })
 
@@ -428,7 +434,6 @@ export const ListAppointmentsResponseItem = zod.object({
   "date": zod.string(),
   "timeSlot": zod.string(),
   "status": zod.string(),
-  "paymentStatus": zod.string().optional(),
   "notes": zod.string().nullish(),
   "totalKes": zod.number(),
   "customerName": zod.string().nullish(),
