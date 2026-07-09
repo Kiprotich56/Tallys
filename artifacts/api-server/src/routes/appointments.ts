@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, ne, desc } from "drizzle-orm";
 import {
   db, appointmentsTable, customersTable, servicesTable, staffTable,
   commissionsTable, serviceCommissionsTable,
@@ -125,11 +125,31 @@ router.post("/appointments", requireAuth, bookingLimiter, async (req, res): Prom
     }
   }
 
+  // Reject dates/times that have already passed — a customer could otherwise
+  // build a booking against a stale time slot list and end up with a booking
+  // in the past.
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (parsed.data.date < todayStr) {
+    res.status(400).json({ error: "You can't book a date that has already passed." });
+    return;
+  }
+  if (parsed.data.date === todayStr) {
+    const [h, m] = parsed.data.timeSlot.split(":").map(Number);
+    const slotMinutes = (h ?? 0) * 60 + (m ?? 0);
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+    if (Number.isNaN(slotMinutes) || slotMinutes <= currentMinutes) {
+      res.status(400).json({ error: "You can't book a time that has already passed." });
+      return;
+    }
+  }
+
   const [service] = await db.select().from(servicesTable).where(eq(servicesTable.id, parsed.data.serviceId));
   if (!service) { res.status(404).json({ error: "Service not found" }); return; }
   const totalKes = service.priceKes ?? 0;
 
-  // Check for double booking
+  // Check for double booking — exclude cancelled appointments so a freed-up
+  // slot can be re-booked.
   const existing = await db.select({ id: appointmentsTable.id })
     .from(appointmentsTable)
     .where(
@@ -137,26 +157,41 @@ router.post("/appointments", requireAuth, bookingLimiter, async (req, res): Prom
         eq(appointmentsTable.staffId, parsed.data.staffId),
         eq(appointmentsTable.date, parsed.data.date),
         eq(appointmentsTable.timeSlot, parsed.data.timeSlot),
+        ne(appointmentsTable.status, "cancelled"),
       )
     ).limit(1);
 
   if (existing.length > 0) {
-    res.status(409).json({ error: "This time slot is already booked. Please choose another time." });
+    res.status(409).json({ error: "That time slot was just taken by someone else. Please pick another time." });
     return;
   }
 
-  const [appt] = await db.insert(appointmentsTable).values({
-    customerId: parsed.data.customerId,
-    serviceId: parsed.data.serviceId,
-    staffId: parsed.data.staffId,
-    date: parsed.data.date,
-    timeSlot: parsed.data.timeSlot,
-    notes: parsed.data.notes ?? null,
-    guardianName: parsed.data.guardianName ?? null,
-    guardianPhone: parsed.data.guardianPhone ?? null,
-    totalKes,
-    status: "pending",
-  }).returning();
+  let appt;
+  try {
+    [appt] = await db.insert(appointmentsTable).values({
+      customerId: parsed.data.customerId,
+      serviceId: parsed.data.serviceId,
+      staffId: parsed.data.staffId,
+      date: parsed.data.date,
+      timeSlot: parsed.data.timeSlot,
+      notes: parsed.data.notes ?? null,
+      guardianName: parsed.data.guardianName ?? null,
+      guardianPhone: parsed.data.guardianPhone ?? null,
+      totalKes,
+      status: "pending",
+    }).returning();
+  } catch (err: any) {
+    // 23505 = unique_violation. The read-then-insert check above closes most
+    // conflicts, but a concurrent request for the exact same slot can still
+    // race past it — the DB's partial unique index on (staff_id, date,
+    // time_slot) is the real guarantee, so map its violation to the same
+    // 409 the user already understands.
+    if (err?.code === "23505") {
+      res.status(409).json({ error: "That time slot was just taken by someone else. Please pick another time." });
+      return;
+    }
+    throw err;
+  }
 
   // Update customer last interaction
   db.update(customersTable).set({ lastInteraction: new Date() }).where(eq(customersTable.id, parsed.data.customerId)).catch(() => {});

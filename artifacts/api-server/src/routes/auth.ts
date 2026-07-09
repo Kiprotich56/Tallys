@@ -9,14 +9,11 @@ import { sendVerificationEmail, sendPasswordResetEmail } from "../lib/email";
 
 const router = Router();
 
-// CLIENT_URL = the frontend (browser-facing domain)
-// API_URL    = this Express server's own public URL (used in email links that call /api/*)
-// On Replit, both the frontend and API are served on the same domain via the proxy.
+// CLIENT_URL = the frontend (browser-facing domain). All email links (email
+// verification, password reset) must point here — never at the bare API
+// domain — so the user always lands on the app UI, not a JSON response.
 const CLIENT_URL = process.env.CLIENT_URL ?? process.env.APP_URL ?? (
   process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:3000"
-);
-const API_URL = process.env.API_URL ?? process.env.APP_URL ?? (
-  process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : `http://localhost:${process.env.PORT ?? 8080}`
 );
 
 function generateToken() {
@@ -68,8 +65,10 @@ router.post("/auth/register", authLimiter, async (req, res) => {
       emailVerificationExpires: verificationExpires,
     }).returning();
 
-    // Send verification email (non-blocking)
-    const verificationUrl = `${API_URL}/api/auth/verify-email?token=${verificationToken}`;
+    // Send verification email (non-blocking). The link opens the frontend
+    // directly (not the bare API route) — the frontend page then calls the
+    // API in the background and shows a proper confirmation screen.
+    const verificationUrl = `${CLIENT_URL}/verify-email?token=${verificationToken}`;
     sendVerificationEmail(emailLower, { name: customer.name, verificationUrl }).catch(() => {});
 
     req.session.userId = user.id;
@@ -173,6 +172,10 @@ router.get("/auth/me", async (req, res) => {
   }
 });
 
+// Returns JSON so the frontend /verify-email page can call it in the
+// background and control its own navigation, instead of the browser being
+// sent to the bare backend URL first (which briefly showed the API's own
+// domain before bouncing to the app).
 router.get("/auth/verify-email", async (req, res) => {
   const { token } = req.query;
   if (!token || typeof token !== "string") {
@@ -184,7 +187,7 @@ router.get("/auth/verify-email", async (req, res) => {
       .where(eq(usersTable.emailVerificationToken, token)).limit(1);
 
     if (!user || !user.emailVerificationExpires || user.emailVerificationExpires < new Date()) {
-      res.redirect(`${CLIENT_URL}/login?verified=expired`);
+      res.status(400).json({ ok: false, error: "expired" });
       return;
     }
 
@@ -194,10 +197,10 @@ router.get("/auth/verify-email", async (req, res) => {
       emailVerificationExpires: null,
     }).where(eq(usersTable.id, user.id));
 
-    res.redirect(`${CLIENT_URL}/login?verified=success`);
+    res.json({ ok: true });
   } catch (err) {
     req.log.error(err, "verify-email error");
-    res.status(500).json({ error: "Verification failed" });
+    res.status(500).json({ ok: false, error: "Verification failed" });
   }
 });
 
@@ -220,7 +223,7 @@ router.post("/auth/resend-verification", authLimiter, async (req, res) => {
       ? await db.select().from(customersTable).where(eq(customersTable.id, user.customerId)).limit(1)
       : [null];
 
-    const verificationUrl = `${API_URL}/api/auth/verify-email?token=${verificationToken}`;
+    const verificationUrl = `${CLIENT_URL}/verify-email?token=${verificationToken}`;
     const emailSent = await sendVerificationEmail(user.email, { name: customer?.name ?? user.email, verificationUrl });
 
     res.json({ ok: true, emailSent, verificationUrl: emailSent ? undefined : verificationUrl });

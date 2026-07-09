@@ -7,7 +7,7 @@ import {
   getListServicesQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Scissors, Plus, Search, Edit2, Trash2 } from "lucide-react";
+import { Scissors, Plus, Search, Edit2, Trash2, Upload, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -26,6 +26,7 @@ const serviceSchema = z.object({
   priceKes: z.coerce.number().min(0),
   durationMinutes: z.coerce.number().min(1),
   isActive: z.boolean().default(true),
+  imageUrl: z.string().optional(),
 });
 
 export default function AdminServices() {
@@ -41,9 +42,11 @@ export default function AdminServices() {
   const updateService = useUpdateService();
   const deleteService = useDeleteService();
 
+  const [uploading, setUploading] = useState(false);
+
   const form = useForm<z.infer<typeof serviceSchema>>({
     resolver: zodResolver(serviceSchema),
-    defaultValues: { name: "", description: "", category: "", priceKes: 0, durationMinutes: 30, isActive: true },
+    defaultValues: { name: "", description: "", category: "", priceKes: 0, durationMinutes: 30, isActive: true, imageUrl: "" },
   });
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: getListServicesQueryKey() });
@@ -71,14 +74,41 @@ export default function AdminServices() {
       priceKes: service.priceKes,
       durationMinutes: service.durationMinutes,
       isActive: service.isActive,
+      imageUrl: service.imageUrl || "",
     });
     setIsDialogOpen(true);
   };
 
   const openNewDialog = () => {
     setEditingId(null);
-    form.reset({ name: "", description: "", category: "", priceKes: 0, durationMinutes: 30, isActive: true });
+    form.reset({ name: "", description: "", category: "", priceKes: 0, durationMinutes: 30, isActive: true, imageUrl: "" });
     setIsDialogOpen(true);
+  };
+
+  // Services can only receive a file upload once they exist (the upload
+  // endpoint needs an id), so new services fall back to the imageUrl text
+  // field until saved once.
+  const uploadServiceImage = async (file: File) => {
+    if (!editingId) return;
+    const formData = new FormData();
+    formData.append("image", file);
+    setUploading(true);
+    try {
+      const res = await fetch(`/api/services/${editingId}/image`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      form.setValue("imageUrl", updated.imageUrl ?? "");
+      invalidate();
+      toast({ title: "Image uploaded" });
+    } catch {
+      toast({ title: "Failed to upload image", variant: "destructive" });
+    } finally {
+      setUploading(false);
+    }
   };
 
   const confirmDelete = () => {
@@ -151,6 +181,43 @@ export default function AdminServices() {
                     <FormMessage />
                   </FormItem>
                 )} />
+                <FormField control={form.control} name="imageUrl" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Service Image</FormLabel>
+                    <div className="flex items-center gap-3">
+                      <div className="w-16 h-16 rounded-full overflow-hidden bg-muted border border-border flex-shrink-0 flex items-center justify-center">
+                        {field.value ? (
+                          <img src={field.value} alt="Service" className="w-full h-full object-cover" />
+                        ) : (
+                          <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="flex-1 space-y-2">
+                        <FormControl>
+                          <Input placeholder="Image URL (optional)" {...field} />
+                        </FormControl>
+                        <label className={`flex items-center justify-center gap-2 w-full h-9 rounded-md border border-dashed border-border text-xs text-muted-foreground transition-colors ${
+                          editingId ? "cursor-pointer hover:bg-accent/10" : "opacity-50 cursor-not-allowed"
+                        } ${uploading ? "opacity-50 pointer-events-none" : ""}`}>
+                          <Upload className="w-3.5 h-3.5" />
+                          {uploading ? "Uploading..." : editingId ? "Upload image (max 5MB)" : "Save service first to upload a file"}
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={!editingId || uploading}
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) uploadServiceImage(file);
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                    <FormMessage />
+                  </FormItem>
+                )} />
                 <FormField control={form.control} name="isActive" render={({ field }) => (
                   <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
@@ -216,8 +283,19 @@ export default function AdminServices() {
               ) : filteredServices?.map(service => (
                 <tr key={service.id} className="hover:bg-accent/5">
                   <td className="p-4">
-                    <div className="font-bold">{service.name}</div>
-                    {service.description && <div className="text-xs text-muted-foreground line-clamp-1 max-w-xs">{service.description}</div>}
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full overflow-hidden bg-muted border border-border flex-shrink-0 flex items-center justify-center">
+                        {service.imageUrl ? (
+                          <img src={service.imageUrl} alt={service.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <ImageIcon className="w-4 h-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-bold">{service.name}</div>
+                        {service.description && <div className="text-xs text-muted-foreground line-clamp-1 max-w-xs">{service.description}</div>}
+                      </div>
+                    </div>
                   </td>
                   <td className="p-4 text-sm">{service.category}</td>
                   <td className="p-4 font-medium text-primary">KSh {service.priceKes.toLocaleString()}</td>

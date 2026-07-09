@@ -17,6 +17,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Calendar } from "@/components/ui/calendar";
 import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
+import {
   Scissors,
   User,
   Calendar as CalendarIcon,
@@ -25,6 +28,7 @@ import {
   ChevronRight,
   Loader2,
   Clock,
+  Info,
 } from "lucide-react";
 
 // Steps: 1=Service, 2=Staff, 3=DateTime, 4=Details, 5=Confirm
@@ -34,6 +38,7 @@ export default function BookPage() {
 
   // Booking state
   const [selectedServiceId, setSelectedServiceId] = useState<number | null>(null);
+  const [detailsService, setDetailsService] = useState<any | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
@@ -149,8 +154,21 @@ export default function BookPage() {
       });
 
       setStep(5);
-    } catch {
-      alert("Failed to reserve your slot. Please try again.");
+    } catch (err: any) {
+      const message =
+        err?.data?.error ??
+        err?.message ??
+        "Something went wrong while sending your booking. Please try again.";
+      if (err?.status === 409) {
+        // Someone else grabbed this slot between selection and submission —
+        // send the user back to pick a different time instead of just
+        // failing silently.
+        alert(`${message} Please choose another time.`);
+        setSelectedTimeSlot(null);
+        setStep(3);
+      } else {
+        alert(message);
+      }
     }
   };
 
@@ -189,39 +207,54 @@ export default function BookPage() {
                 {services
                   ?.filter((s) => s.isActive)
                   .map((service) => (
-                    <button
+                    <div
                       key={service.id}
                       onClick={() => handleServiceSelect(service.id)}
-                      className={`text-left rounded-lg border transition-all overflow-hidden ${
+                      role="button"
+                      tabIndex={0}
+                      className={`text-left rounded-lg border transition-all cursor-pointer ${
                         selectedServiceId === service.id
                           ? "border-primary bg-primary/5 ring-1 ring-primary"
                           : "border-border hover:border-primary/50 bg-background"
                       }`}
                     >
-                      {service.imageUrl && (
-                        <div className="h-32 overflow-hidden">
-                          <img
-                            src={service.imageUrl}
-                            alt={service.name}
-                            className="w-full h-full object-cover"
-                          />
+                      <div className="p-4 flex gap-3">
+                        <div className="w-14 h-14 rounded-full overflow-hidden bg-muted border border-border flex-shrink-0 flex items-center justify-center">
+                          {service.imageUrl ? (
+                            <img
+                              src={service.imageUrl}
+                              alt={service.name}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <Scissors className="w-5 h-5 text-muted-foreground" />
+                          )}
                         </div>
-                      )}
-                      <div className="p-4">
-                        <div className="flex justify-between items-start mb-1">
-                          <div className="font-bold">{service.name}</div>
-                          <div className="text-primary font-medium text-sm whitespace-nowrap ml-3">
-                            KSh {service.priceKes.toLocaleString()}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex justify-between items-start mb-1">
+                            <div className="font-bold">{service.name}</div>
+                            <div className="text-primary font-medium text-sm whitespace-nowrap ml-3">
+                              KSh {service.priceKes.toLocaleString()}
+                            </div>
+                          </div>
+                          {service.description && (
+                            <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                              {service.description}
+                            </p>
+                          )}
+                          <div className="flex items-center justify-between">
+                            <div className="text-sm text-muted-foreground">{service.durationMinutes} mins</div>
+                            <button
+                              type="button"
+                              onClick={(e) => { e.stopPropagation(); setDetailsService(service); }}
+                              className="text-xs text-primary hover:underline flex items-center gap-1"
+                            >
+                              <Info className="w-3 h-3" /> View more
+                            </button>
                           </div>
                         </div>
-                        {service.description && (
-                          <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                            {service.description}
-                          </p>
-                        )}
-                        <div className="text-sm text-muted-foreground">{service.durationMinutes} mins</div>
                       </div>
-                    </button>
+                    </div>
                   ))}
               </div>
             )}
@@ -519,6 +552,35 @@ export default function BookPage() {
           </div>
         )}
       </div>
+
+      {/* Service detail modal — full image + description, opened from "View more" */}
+      <Dialog open={!!detailsService} onOpenChange={(o) => !o && setDetailsService(null)}>
+        <DialogContent className="sm:max-w-lg">
+          {detailsService && (
+            <>
+              {detailsService.imageUrl && (
+                <div className="w-full h-56 -mt-2 rounded-lg overflow-hidden bg-muted">
+                  <img src={detailsService.imageUrl} alt={detailsService.name} className="w-full h-full object-cover" />
+                </div>
+              )}
+              <DialogHeader>
+                <DialogTitle className="flex items-center justify-between gap-4">
+                  <span>{detailsService.name}</span>
+                  <span className="text-primary text-base whitespace-nowrap">
+                    KSh {detailsService.priceKes.toLocaleString()}
+                  </span>
+                </DialogTitle>
+                <DialogDescription className="text-left pt-2 text-foreground/90">
+                  {detailsService.description || "No description provided yet for this service."}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="text-sm text-muted-foreground border-t border-border pt-4 mt-2">
+                {detailsService.category} · {detailsService.durationMinutes} mins
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

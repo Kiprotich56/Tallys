@@ -107,6 +107,16 @@ export async function runMigrations() {
       UPDATE services SET image_url = 'https://esthetichaus.com/wp-content/uploads/2023/09/fw1.jpg' WHERE category = 'Waxing' AND image_url IS NULL;
 
       UPDATE services SET image_url = 'https://i0.wp.com/paradiseadventures.live/wp-content/uploads/2025/06/House-of-Barbaard_1.107.1.jpg?resize=1024,576&ssl=1' WHERE category = 'Combos' AND image_url IS NULL;
+
+      -- Enforce double-booking prevention atomically at the DB level. The
+      -- app-level "check then insert" in appointments.ts has a race window
+      -- between two concurrent requests for the same slot; this partial
+      -- unique index (excluding cancelled bookings, which free up the slot)
+      -- makes the second insert fail with a unique violation instead of
+      -- silently creating a duplicate booking.
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_appointments_slot_unique
+        ON appointments(staff_id, date, time_slot)
+        WHERE status <> 'cancelled';
     `);
     logger.info("Database migrations completed successfully");
   } catch (err) {

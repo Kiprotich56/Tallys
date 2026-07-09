@@ -13,6 +13,7 @@ import TeamPage from "@/pages/team";
 import ReviewsPage from "@/pages/reviews";
 import LoginPage from "@/pages/login";
 import ResetPasswordPage from "@/pages/reset-password";
+import VerifyEmailPage from "@/pages/verify-email";
 
 // Portal
 import PortalDashboard from "@/pages/portal";
@@ -91,6 +92,7 @@ function Router() {
       {/* Standalone pages (no public layout) */}
       <Route path="/login" component={LoginPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
+      <Route path="/verify-email" component={VerifyEmailPage} />
 
       {/* Public & Portal Routes */}
       <Route>
