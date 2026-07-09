@@ -15,7 +15,8 @@ export const RegisterBody = zod.object({
   "email": zod.string(),
   "password": zod.string(),
   "name": zod.string(),
-  "phone": zod.string()
+  "phone": zod.string(),
+  "gender": zod.string()
 })
 
 export const RegisterResponse = zod.object({
@@ -408,6 +409,8 @@ export const GetCustomerAppointmentsResponseItem = zod.object({
   "timeSlot": zod.string(),
   "status": zod.string(),
   "notes": zod.string().nullish(),
+  "guardianName": zod.string().nullish(),
+  "guardianPhone": zod.string().nullish(),
   "totalKes": zod.number(),
   "customerName": zod.string().nullish(),
   "serviceName": zod.string().nullish(),
@@ -435,6 +438,8 @@ export const ListAppointmentsResponseItem = zod.object({
   "timeSlot": zod.string(),
   "status": zod.string(),
   "notes": zod.string().nullish(),
+  "guardianName": zod.string().nullish(),
+  "guardianPhone": zod.string().nullish(),
   "totalKes": zod.number(),
   "customerName": zod.string().nullish(),
   "serviceName": zod.string().nullish(),
@@ -453,7 +458,9 @@ export const CreateAppointmentBody = zod.object({
   "staffId": zod.number(),
   "date": zod.string(),
   "timeSlot": zod.string(),
-  "notes": zod.string().optional()
+  "notes": zod.string().optional(),
+  "guardianName": zod.string().optional(),
+  "guardianPhone": zod.string().optional()
 })
 
 export const CreateAppointmentResponse = zod.object({
@@ -465,6 +472,8 @@ export const CreateAppointmentResponse = zod.object({
   "timeSlot": zod.string(),
   "status": zod.string(),
   "notes": zod.string().nullish(),
+  "guardianName": zod.string().nullish(),
+  "guardianPhone": zod.string().nullish(),
   "totalKes": zod.number(),
   "customerName": zod.string().nullish(),
   "serviceName": zod.string().nullish(),
@@ -486,6 +495,8 @@ export const GetAppointmentResponse = zod.object({
   "timeSlot": zod.string(),
   "status": zod.string(),
   "notes": zod.string().nullish(),
+  "guardianName": zod.string().nullish(),
+  "guardianPhone": zod.string().nullish(),
   "totalKes": zod.number(),
   "customerName": zod.string().nullish(),
   "serviceName": zod.string().nullish(),
@@ -515,6 +526,8 @@ export const UpdateAppointmentResponse = zod.object({
   "timeSlot": zod.string(),
   "status": zod.string(),
   "notes": zod.string().nullish(),
+  "guardianName": zod.string().nullish(),
+  "guardianPhone": zod.string().nullish(),
   "totalKes": zod.number(),
   "customerName": zod.string().nullish(),
   "serviceName": zod.string().nullish(),
@@ -543,6 +556,8 @@ export const ConfirmAppointmentResponse = zod.object({
   "timeSlot": zod.string(),
   "status": zod.string(),
   "notes": zod.string().nullish(),
+  "guardianName": zod.string().nullish(),
+  "guardianPhone": zod.string().nullish(),
   "totalKes": zod.number(),
   "customerName": zod.string().nullish(),
   "serviceName": zod.string().nullish(),
@@ -564,6 +579,8 @@ export const CompleteAppointmentResponse = zod.object({
   "timeSlot": zod.string(),
   "status": zod.string(),
   "notes": zod.string().nullish(),
+  "guardianName": zod.string().nullish(),
+  "guardianPhone": zod.string().nullish(),
   "totalKes": zod.number(),
   "customerName": zod.string().nullish(),
   "serviceName": zod.string().nullish(),
@@ -582,7 +599,8 @@ export const ListReviewsQueryParams = zod.object({
 
 export const ListReviewsResponseItem = zod.object({
   "id": zod.number(),
-  "customerId": zod.number(),
+  "customerId": zod.number().nullable(),
+  "guestName": zod.string().nullish(),
   "serviceId": zod.number().nullable(),
   "staffId": zod.number().nullish(),
   "rating": zod.number(),
@@ -599,7 +617,8 @@ export const ListReviewsResponse = zod.array(ListReviewsResponseItem)
  * @summary Submit a review
  */
 export const CreateReviewBody = zod.object({
-  "customerId": zod.number(),
+  "customerId": zod.number().optional(),
+  "guestName": zod.string().optional(),
   "serviceId": zod.number().optional(),
   "staffId": zod.number().optional(),
   "rating": zod.number(),
@@ -608,7 +627,8 @@ export const CreateReviewBody = zod.object({
 
 export const CreateReviewResponse = zod.object({
   "id": zod.number(),
-  "customerId": zod.number(),
+  "customerId": zod.number().nullable(),
+  "guestName": zod.string().nullish(),
   "serviceId": zod.number().nullable(),
   "staffId": zod.number().nullish(),
   "rating": zod.number(),
@@ -626,7 +646,8 @@ export const ApproveReviewParams = zod.object({
 
 export const ApproveReviewResponse = zod.object({
   "id": zod.number(),
-  "customerId": zod.number(),
+  "customerId": zod.number().nullable(),
+  "guestName": zod.string().nullish(),
   "serviceId": zod.number().nullable(),
   "staffId": zod.number().nullish(),
   "rating": zod.number(),
@@ -644,7 +665,8 @@ export const HideReviewParams = zod.object({
 
 export const HideReviewResponse = zod.object({
   "id": zod.number(),
-  "customerId": zod.number(),
+  "customerId": zod.number().nullable(),
+  "guestName": zod.string().nullish(),
   "serviceId": zod.number().nullable(),
   "staffId": zod.number().nullish(),
   "rating": zod.number(),
@@ -759,6 +781,8 @@ export const GetTodayAppointmentsResponseItem = zod.object({
   "timeSlot": zod.string(),
   "status": zod.string(),
   "notes": zod.string().nullish(),
+  "guardianName": zod.string().nullish(),
+  "guardianPhone": zod.string().nullish(),
   "totalKes": zod.number(),
   "customerName": zod.string().nullish(),
   "serviceName": zod.string().nullish(),

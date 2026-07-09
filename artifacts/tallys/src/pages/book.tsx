@@ -38,6 +38,23 @@ export default function BookPage() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string | null>(null);
   const [customerData, setCustomerData] = useState({ name: "", phone: "", email: "", notes: "" });
+  const [clientDob, setClientDob] = useState("");
+  const [guardianName, setGuardianName] = useState("");
+  const [guardianPhone, setGuardianPhone] = useState("");
+
+  const calcAge = (dobStr: string): number | null => {
+    if (!dobStr) return null;
+    const dob = new Date(dobStr);
+    if (isNaN(dob.getTime())) return null;
+    const now = new Date();
+    let age = now.getFullYear() - dob.getFullYear();
+    const monthDiff = now.getMonth() - dob.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < dob.getDate())) age--;
+    return age;
+  };
+
+  const clientAge = calcAge(clientDob);
+  const isMinor = clientAge !== null && clientAge < 18;
 
   // Pre-fill customer data from logged-in user
   useEffect(() => {
@@ -98,6 +115,10 @@ export default function BookPage() {
   const handleDetailsSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedServiceId || !selectedStaffId || !selectedDate || !selectedTimeSlot) return;
+    if (isMinor && (!guardianName.trim() || !guardianPhone.trim())) {
+      alert("This booking is for someone under 18. Please provide a parent/guardian name and phone number.");
+      return;
+    }
     try {
       let customerId: number;
 
@@ -122,6 +143,8 @@ export default function BookPage() {
           date: formattedDate,
           timeSlot: selectedTimeSlot,
           notes: customerData.notes || undefined,
+          guardianName: isMinor ? guardianName.trim() : undefined,
+          guardianPhone: isMinor ? guardianPhone.trim() : undefined,
         },
       });
 
@@ -187,10 +210,15 @@ export default function BookPage() {
                       <div className="p-4">
                         <div className="flex justify-between items-start mb-1">
                           <div className="font-bold">{service.name}</div>
-                          <div className="text-primary font-medium text-sm">
+                          <div className="text-primary font-medium text-sm whitespace-nowrap ml-3">
                             KSh {service.priceKes.toLocaleString()}
                           </div>
                         </div>
+                        {service.description && (
+                          <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                            {service.description}
+                          </p>
+                        )}
                         <div className="text-sm text-muted-foreground">{service.durationMinutes} mins</div>
                       </div>
                     </button>
@@ -363,6 +391,50 @@ export default function BookPage() {
                       />
                     </div>
                   </div>
+                  <div>
+                    <Label htmlFor="dob">Date of Birth (of the person being booked for)</Label>
+                    <Input
+                      id="dob"
+                      type="date"
+                      value={clientDob}
+                      onChange={(e) => setClientDob(e.target.value)}
+                      className="mt-1"
+                      max={new Date().toISOString().slice(0, 10)}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Used to check if a parent/guardian needs to make this booking.
+                    </p>
+                  </div>
+                  {isMinor && (
+                    <div className="space-y-4 p-4 rounded-lg border border-amber-500/40 bg-amber-500/10">
+                      <p className="text-sm text-amber-200">
+                        This booking is for someone under 18. A parent or guardian must provide their details below.
+                      </p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="guardianName">Parent/Guardian Name *</Label>
+                          <Input
+                            id="guardianName"
+                            required
+                            value={guardianName}
+                            onChange={(e) => setGuardianName(e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="guardianPhone">Parent/Guardian Phone *</Label>
+                          <Input
+                            id="guardianPhone"
+                            required
+                            placeholder="0712 345 678"
+                            value={guardianPhone}
+                            onChange={(e) => setGuardianPhone(e.target.value)}
+                            className="mt-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   <div>
                     <Label htmlFor="notes">Special Requests / Notes</Label>
                     <Textarea

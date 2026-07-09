@@ -955,6 +955,8 @@ components:
         timeSlot:     { type: string }
         status:       { type: string }
         notes:        { type: ["string", "null"] }
+        guardianName:  { type: ["string", "null"] }
+        guardianPhone: { type: ["string", "null"] }
         totalKes:     { type: integer }
         customerName: { type: ["string", "null"] }
         serviceName:  { type: ["string", "null"] }
@@ -971,6 +973,8 @@ components:
         date:       { type: string }
         timeSlot:   { type: string }
         notes:      { type: string }
+        guardianName:  { type: string }
+        guardianPhone: { type: string }
 
     AppointmentUpdate:
       type: object
@@ -987,7 +991,8 @@ components:
       required: [id, customerId, serviceId, rating, status]
       properties:
         id:           { type: integer }
-        customerId:   { type: integer }
+        customerId:   { type: ["integer", "null"] }
+        guestName:    { type: ["string", "null"] }
         serviceId:    { type: ["integer", "null"] }
         staffId:      { type: ["integer", "null"] }
         rating:       { type: integer }
@@ -999,9 +1004,10 @@ components:
 
     ReviewInput:
       type: object
-      required: [customerId, rating]
+      required: [rating]
       properties:
         customerId: { type: integer }
+        guestName:  { type: string }
         serviceId:  { type: integer }
         staffId:    { type: integer }
         rating:     { type: integer }
@@ -1149,7 +1155,7 @@ components:
 
     RegisterInput:
       type: object
-      required: [email, password, name, phone]
+      required: [email, password, name, phone, gender]
       properties:
         email:
           type: string
@@ -1158,6 +1164,8 @@ components:
         name:
           type: string
         phone:
+          type: string
+        gender:
           type: string
 
     ErrorResponse:

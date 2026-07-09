@@ -25,9 +25,9 @@ function generateToken() {
 
 router.post("/auth/register", authLimiter, async (req, res) => {
   try {
-    const { email, password, name, phone } = req.body;
-    if (!email || !password || !name || !phone) {
-      res.status(400).json({ error: "email, password, name and phone are required" });
+    const { email, password, name, phone, gender } = req.body;
+    if (!email || !password || !name || !phone || !gender) {
+      res.status(400).json({ error: "email, password, name, phone and gender are required" });
       return;
     }
 
@@ -54,6 +54,8 @@ router.post("/auth/register", authLimiter, async (req, res) => {
     const [customer] = await db.insert(customersTable).values({
       name: String(name).trim().slice(0, 100),
       phone: String(phone).trim().slice(0, 20),
+      email: emailLower,
+      gender: gender ? String(gender).trim().slice(0, 20) : null,
     }).returning();
 
     const [user] = await db.insert(usersTable).values({

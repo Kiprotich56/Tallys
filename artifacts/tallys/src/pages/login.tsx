@@ -14,6 +14,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [gender, setGender] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [forgotSent, setForgotSent] = useState(false);
@@ -58,7 +59,12 @@ export default function LoginPage() {
           setLoading(false);
           return;
         }
-        const user = await register(email, password, name, phone);
+        if (!gender.trim()) {
+          toast({ title: "Please select your gender", variant: "destructive" });
+          setLoading(false);
+          return;
+        }
+        const user = await register(email, password, name, phone, gender);
         toast({ title: `Welcome to Tally's, ${user.name}!`, description: "Check your email to verify your account." });
         setLocation(redirect ?? "/portal");
       } else if (mode === "forgot") {
@@ -136,6 +142,20 @@ export default function LoginPage() {
                     <div>
                       <label className="block text-sm font-medium mb-1.5">Phone Number</label>
                       <Input placeholder="0712 345 678" value={phone} onChange={e => setPhone(e.target.value)} required />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1.5">Gender</label>
+                      <select
+                        value={gender}
+                        onChange={e => setGender(e.target.value)}
+                        required
+                        className="w-full h-9 px-3 rounded-md border border-input bg-background text-sm"
+                      >
+                        <option value="">Select gender</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
                     </div>
                   </>
                 )}

@@ -134,6 +134,10 @@ export interface Appointment {
   status: string;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  guardianName?: string | null;
+  /** @nullable */
+  guardianPhone?: string | null;
   totalKes: number;
   /** @nullable */
   customerName?: string | null;
@@ -151,6 +155,8 @@ export interface AppointmentInput {
   date: string;
   timeSlot: string;
   notes?: string;
+  guardianName?: string;
+  guardianPhone?: string;
 }
 
 export interface AppointmentUpdate {
@@ -163,7 +169,10 @@ export interface AppointmentUpdate {
 
 export interface Review {
   id: number;
-  customerId: number;
+  /** @nullable */
+  customerId: number | null;
+  /** @nullable */
+  guestName?: string | null;
   /** @nullable */
   serviceId: number | null;
   /** @nullable */
@@ -180,7 +189,8 @@ export interface Review {
 }
 
 export interface ReviewInput {
-  customerId: number;
+  customerId?: number;
+  guestName?: string;
   serviceId?: number;
   staffId?: number;
   rating: number;
@@ -300,6 +310,7 @@ export interface RegisterInput {
   password: string;
   name: string;
   phone: string;
+  gender: string;
 }
 
 export interface ErrorResponse {

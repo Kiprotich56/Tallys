@@ -12,6 +12,8 @@ export const appointmentsTable = pgTable("appointments", {
   status: text("status").notNull().default("pending"),
   paymentStatus: text("payment_status").notNull().default("pending"),
   notes: text("notes"),
+  guardianName: text("guardian_name"),
+  guardianPhone: text("guardian_phone"),
   totalKes: integer("total_kes").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

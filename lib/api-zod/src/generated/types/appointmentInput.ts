@@ -13,4 +13,6 @@ export interface AppointmentInput {
   date: string;
   timeSlot: string;
   notes?: string;
+  guardianName?: string;
+  guardianPhone?: string;
 }

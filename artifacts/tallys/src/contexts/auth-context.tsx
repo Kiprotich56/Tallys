@@ -16,7 +16,7 @@ interface AuthContextValue {
   isAdmin: boolean;
   isCustomer: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
-  register: (email: string, password: string, name: string, phone: string) => Promise<AuthUser>;
+  register: (email: string, password: string, name: string, phone: string, gender?: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
@@ -63,8 +63,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     password: string,
     name: string,
     phone: string,
+    gender?: string,
   ): Promise<AuthUser> => {
-    const result = await registerMutation.mutateAsync({ data: { email, password, name, phone } });
+    const result = await registerMutation.mutateAsync({ data: { email, password, name, phone, gender } as any });
     const authUser = mapToAuthUser(result);
     setUser(authUser);
     return authUser;

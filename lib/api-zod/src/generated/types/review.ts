@@ -8,7 +8,10 @@
 
 export interface Review {
   id: number;
-  customerId: number;
+  /** @nullable */
+  customerId: number | null;
+  /** @nullable */
+  guestName?: string | null;
   /** @nullable */
   serviceId: number | null;
   /** @nullable */

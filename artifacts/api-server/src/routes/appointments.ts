@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import {
   db, appointmentsTable, customersTable, servicesTable, staffTable,
   commissionsTable, serviceCommissionsTable,
@@ -20,7 +20,14 @@ import {
   CompleteAppointmentParams,
   CompleteAppointmentResponse,
 } from "@workspace/api-zod";
-import { requireAuth, requireAdmin } from "../middlewares/auth";
+import { requireAuth, requireAdmin, requireOwnerOrAdmin } from "../middlewares/auth";
+
+async function getAppointmentOwnerCustomerId(req: { params: { id?: string } }): Promise<number | null> {
+  const id = Number(req.params.id);
+  if (isNaN(id)) return null;
+  const [appt] = await db.select({ customerId: appointmentsTable.customerId }).from(appointmentsTable).where(eq(appointmentsTable.id, id));
+  return appt?.customerId ?? null;
+}
 import { bookingLimiter } from "../lib/rate-limit";
 import { sendBookingConfirmationEmail, sendBookingCancellationEmail } from "../lib/email";
 
@@ -40,6 +47,8 @@ async function enrichAppointment(appt: typeof appointmentsTable.$inferSelect) {
     status: appt.status,
     paymentStatus: (appt as any).paymentStatus ?? "pending",
     notes: appt.notes ?? null,
+    guardianName: (appt as any).guardianName ?? null,
+    guardianPhone: (appt as any).guardianPhone ?? null,
     totalKes: appt.totalKes,
     customerName: customer?.name ?? null,
     serviceName: service?.name ?? null,
@@ -48,7 +57,7 @@ async function enrichAppointment(appt: typeof appointmentsTable.$inferSelect) {
   };
 }
 
-router.get("/appointments", async (req, res): Promise<void> => {
+router.get("/appointments", requireAdmin, async (req, res): Promise<void> => {
   const parsed = ListAppointmentsQueryParams.safeParse(req.query);
   const filters = parsed.success ? parsed.data : {};
 
@@ -63,6 +72,8 @@ router.get("/appointments", async (req, res): Promise<void> => {
       status: appointmentsTable.status,
       paymentStatus: (appointmentsTable as any).paymentStatus,
       notes: appointmentsTable.notes,
+      guardianName: (appointmentsTable as any).guardianName,
+      guardianPhone: (appointmentsTable as any).guardianPhone,
       totalKes: appointmentsTable.totalKes,
       createdAt: appointmentsTable.createdAt,
       serviceName: servicesTable.name,
@@ -73,7 +84,7 @@ router.get("/appointments", async (req, res): Promise<void> => {
     .leftJoin(servicesTable, eq(appointmentsTable.serviceId, servicesTable.id))
     .leftJoin(staffTable, eq(appointmentsTable.staffId, staffTable.id))
     .leftJoin(customersTable, eq(appointmentsTable.customerId, customersTable.id))
-    .orderBy(appointmentsTable.date);
+    .orderBy(desc(appointmentsTable.date), desc(appointmentsTable.timeSlot));
 
   let filtered = rows;
   if (filters.status) filtered = filtered.filter(r => r.status === filters.status);
@@ -90,6 +101,8 @@ router.get("/appointments", async (req, res): Promise<void> => {
     status: r.status,
     paymentStatus: r.paymentStatus ?? "pending",
     notes: r.notes ?? null,
+    guardianName: (r as any).guardianName ?? null,
+    guardianPhone: (r as any).guardianPhone ?? null,
     totalKes: r.totalKes,
     customerName: r.customerName ?? null,
     serviceName: r.serviceName ?? null,
@@ -101,6 +114,16 @@ router.get("/appointments", async (req, res): Promise<void> => {
 router.post("/appointments", requireAuth, bookingLimiter, async (req, res): Promise<void> => {
   const parsed = CreateAppointmentBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  // Never trust a client-supplied customerId for non-admin sessions — bind the
+  // appointment to the caller's own customer record to prevent booking on
+  // behalf of another customer (IDOR).
+  if (req.session.role !== "admin") {
+    if (!req.session.customerId || req.session.customerId !== parsed.data.customerId) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
+    }
+  }
 
   const [service] = await db.select().from(servicesTable).where(eq(servicesTable.id, parsed.data.serviceId));
   if (!service) { res.status(404).json({ error: "Service not found" }); return; }
@@ -129,6 +152,8 @@ router.post("/appointments", requireAuth, bookingLimiter, async (req, res): Prom
     date: parsed.data.date,
     timeSlot: parsed.data.timeSlot,
     notes: parsed.data.notes ?? null,
+    guardianName: parsed.data.guardianName ?? null,
+    guardianPhone: parsed.data.guardianPhone ?? null,
     totalKes,
     status: "pending",
   }).returning();
@@ -154,7 +179,7 @@ router.post("/appointments", requireAuth, bookingLimiter, async (req, res): Prom
   res.status(201).json(CreateAppointmentResponse.parse(await enrichAppointment(appt)));
 });
 
-router.get("/appointments/:id", async (req, res): Promise<void> => {
+router.get("/appointments/:id", requireOwnerOrAdmin(getAppointmentOwnerCustomerId), async (req, res): Promise<void> => {
   const params = GetAppointmentParams.safeParse({ id: Number(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id) });
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const [appt] = await db.select().from(appointmentsTable).where(eq(appointmentsTable.id, params.data.id));
@@ -162,7 +187,7 @@ router.get("/appointments/:id", async (req, res): Promise<void> => {
   res.json(GetAppointmentResponse.parse(await enrichAppointment(appt)));
 });
 
-router.patch("/appointments/:id", async (req, res): Promise<void> => {
+router.patch("/appointments/:id", requireOwnerOrAdmin(getAppointmentOwnerCustomerId), async (req, res): Promise<void> => {
   const params = UpdateAppointmentParams.safeParse({ id: Number(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id) });
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const parsed = UpdateAppointmentBody.safeParse(req.body);
@@ -172,7 +197,7 @@ router.patch("/appointments/:id", async (req, res): Promise<void> => {
   res.json(UpdateAppointmentResponse.parse(await enrichAppointment(appt)));
 });
 
-router.delete("/appointments/:id", async (req, res): Promise<void> => {
+router.delete("/appointments/:id", requireOwnerOrAdmin(getAppointmentOwnerCustomerId), async (req, res): Promise<void> => {
   const params = CancelAppointmentParams.safeParse({ id: Number(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id) });
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 
@@ -196,7 +221,7 @@ router.delete("/appointments/:id", async (req, res): Promise<void> => {
   res.sendStatus(204);
 });
 
-router.patch("/appointments/:id/confirm", async (req, res): Promise<void> => {
+router.patch("/appointments/:id/confirm", requireAdmin, async (req, res): Promise<void> => {
   const params = ConfirmAppointmentParams.safeParse({ id: Number(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id) });
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const [appt] = await db.update(appointmentsTable).set({ status: "confirmed" }).where(eq(appointmentsTable.id, params.data.id)).returning();
@@ -220,7 +245,7 @@ router.patch("/appointments/:id/payment", requireAdmin, async (req, res): Promis
   res.json(await enrichAppointment(appt));
 });
 
-router.patch("/appointments/:id/complete", async (req, res): Promise<void> => {
+router.patch("/appointments/:id/complete", requireAdmin, async (req, res): Promise<void> => {
   const params = CompleteAppointmentParams.safeParse({ id: Number(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id) });
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const [appt] = await db.update(appointmentsTable).set({ status: "completed" }).where(eq(appointmentsTable.id, params.data.id)).returning();

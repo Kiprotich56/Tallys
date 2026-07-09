@@ -14,9 +14,14 @@ import {
   GetCustomerAppointmentsParams,
   GetCustomerAppointmentsResponse,
 } from "@workspace/api-zod";
-import { requireAdmin } from "../middlewares/auth";
+import { requireAdmin, requireAuth, requireOwnerOrAdmin } from "../middlewares/auth";
 
 const router: IRouter = Router();
+
+function ownCustomerId(req: { params: { id?: string } }): number | null {
+  const id = Number(req.params.id);
+  return isNaN(id) ? null : id;
+}
 
 function mapCustomer(c: typeof customersTable.$inferSelect) {
   return {
@@ -36,7 +41,7 @@ function mapCustomer(c: typeof customersTable.$inferSelect) {
   };
 }
 
-router.get("/customers", async (req, res): Promise<void> => {
+router.get("/customers", requireAdmin, async (req, res): Promise<void> => {
   const parsed = ListCustomersQueryParams.safeParse(req.query);
   const search = parsed.success ? parsed.data.search : undefined;
 
@@ -53,21 +58,32 @@ router.get("/customers", async (req, res): Promise<void> => {
   res.json(ListCustomersResponse.parse(customers.map(mapCustomer)));
 });
 
-router.post("/customers", async (req, res): Promise<void> => {
+router.post("/customers", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateCustomerBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
+  // Any authenticated user already has a customerId from registration, so this
+  // path only serves callers without one yet (should not normally happen). To
+  // prevent unauthorized profile tampering via a phone-based upsert, non-admin
+  // callers may never mutate an existing customer record here — they only get
+  // matched to it (or a fresh one is created).
   const existing = await db.select().from(customersTable).where(eq(customersTable.phone, parsed.data.phone)).limit(1);
   if (existing.length > 0) {
-    const updates: Partial<typeof customersTable.$inferInsert> = {};
-    if (parsed.data.name && parsed.data.name !== existing[0].name) updates.name = parsed.data.name;
-    if (parsed.data.email && parsed.data.email !== existing[0].email) updates.email = parsed.data.email;
-    if (Object.keys(updates).length > 0) {
-      const [updated] = await db.update(customersTable).set(updates).where(eq(customersTable.id, existing[0].id)).returning();
-      res.status(200).json(CreateCustomerResponse.parse(mapCustomer(updated)));
-    } else {
-      res.status(200).json(CreateCustomerResponse.parse(mapCustomer(existing[0])));
+    if (req.session.role !== "admin" && req.session.customerId && req.session.customerId !== existing[0].id) {
+      res.status(403).json({ error: "Forbidden" });
+      return;
     }
+    if (req.session.role === "admin") {
+      const updates: Partial<typeof customersTable.$inferInsert> = {};
+      if (parsed.data.name && parsed.data.name !== existing[0].name) updates.name = parsed.data.name;
+      if (parsed.data.email && parsed.data.email !== existing[0].email) updates.email = parsed.data.email;
+      if (Object.keys(updates).length > 0) {
+        const [updated] = await db.update(customersTable).set(updates).where(eq(customersTable.id, existing[0].id)).returning();
+        res.status(200).json(CreateCustomerResponse.parse(mapCustomer(updated)));
+        return;
+      }
+    }
+    res.status(200).json(CreateCustomerResponse.parse(mapCustomer(existing[0])));
     return;
   }
 
@@ -81,7 +97,7 @@ router.post("/customers", async (req, res): Promise<void> => {
   res.status(201).json(CreateCustomerResponse.parse(mapCustomer(customer)));
 });
 
-router.get("/customers/:id", async (req, res): Promise<void> => {
+router.get("/customers/:id", requireOwnerOrAdmin(ownCustomerId), async (req, res): Promise<void> => {
   const params = GetCustomerParams.safeParse({ id: Number(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id) });
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, params.data.id));
@@ -89,7 +105,7 @@ router.get("/customers/:id", async (req, res): Promise<void> => {
   res.json(GetCustomerResponse.parse(mapCustomer(customer)));
 });
 
-router.patch("/customers/:id", async (req, res): Promise<void> => {
+router.patch("/customers/:id", requireOwnerOrAdmin(ownCustomerId), async (req, res): Promise<void> => {
   const params = UpdateCustomerParams.safeParse({ id: Number(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id) });
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const parsed = UpdateCustomerBody.safeParse(req.body);
@@ -114,7 +130,7 @@ router.patch("/customers/:id/notes", requireAdmin, async (req, res): Promise<voi
   }
 });
 
-router.get("/customers/:id/appointments", async (req, res): Promise<void> => {
+router.get("/customers/:id/appointments", requireOwnerOrAdmin(ownCustomerId), async (req, res): Promise<void> => {
   const params = GetCustomerAppointmentsParams.safeParse({ id: Number(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id) });
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
 

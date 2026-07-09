@@ -184,6 +184,73 @@ export default function PortalDashboard() {
   const upcoming = appointments?.filter(a => a.status === "confirmed" || a.status === "pending") ?? [];
   const past = appointments?.filter(a => a.status === "completed") ?? [];
 
+  // Gate the dashboard behind email verification: unverified customers only
+  // see this screen (with a resend action) until they confirm their address.
+  if (user && !user.emailVerified) {
+    return (
+      <div className="container mx-auto px-4 py-16 max-w-md">
+        <div className="text-center mb-6">
+          <Mail className="w-10 h-10 text-primary mx-auto mb-4" />
+          <h1 className="text-2xl font-serif font-bold mb-2">Verify your email</h1>
+          <p className="text-muted-foreground text-sm">
+            Confirm your email address to unlock your Tally's dashboard, bookings, and loyalty benefits.
+          </p>
+        </div>
+
+        <div className="border border-amber-500/40 bg-amber-500/10 rounded-lg px-5 py-4">
+          {resendState === "no_smtp" && verificationUrl ? (
+            <div className="space-y-1">
+              <p className="text-xs text-amber-300/80">
+                Email delivery is not yet configured on the server. Use this link to verify manually:
+              </p>
+              <a href={verificationUrl} className="text-xs text-primary underline break-all">
+                Click here to verify your email
+              </a>
+            </div>
+          ) : (
+            <p className="text-sm text-amber-200">
+              We sent a link to <strong>{user.email}</strong>. Check your inbox (and spam folder), then come back here.
+            </p>
+          )}
+
+          <div className="mt-4">
+            {resendState === "sent" ? (
+              <span className="inline-flex items-center gap-1.5 text-sm text-green-400 font-medium">
+                <CheckCircle2 className="w-4 h-4" /> Verification email sent!
+              </span>
+            ) : resendState === "no_smtp" ? (
+              <button
+                onClick={() => { setResendState("idle"); setVerificationUrl(null); }}
+                className="text-xs text-amber-300/60 underline"
+              >
+                Retry
+              </button>
+            ) : resendState === "error" ? (
+              <button onClick={() => setResendState("idle")} className="text-xs text-destructive underline">
+                Failed — try again
+              </button>
+            ) : (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-xs h-8 border-amber-500/40 text-amber-200 hover:bg-amber-500/20 hover:text-amber-100"
+                disabled={resendState === "sending"}
+                onClick={handleResendVerification}
+              >
+                <Mail className="w-3.5 h-3.5 mr-1.5" />
+                {resendState === "sending" ? "Sending…" : "Resend verification email"}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <Button variant="ghost" size="sm" className="w-full mt-6 text-muted-foreground hover:text-primary gap-2" onClick={handleLogout}>
+          <LogOut className="w-4 h-4" /> Sign Out
+        </Button>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto px-4 py-12 max-w-5xl">
       {/* Header */}
@@ -200,67 +267,6 @@ export default function PortalDashboard() {
           <LogOut className="w-4 h-4" /> Sign Out
         </Button>
       </div>
-
-      {/* Email verification banner */}
-      {user && !user.emailVerified && (
-        <div className="mb-8 flex items-start gap-3 border border-amber-500/40 bg-amber-500/10 rounded-lg px-5 py-4">
-          <AlertCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-amber-200">
-              Please verify your email address
-            </p>
-            {resendState === "no_smtp" && verificationUrl ? (
-              <div className="mt-2 space-y-1">
-                <p className="text-xs text-amber-300/80">
-                  Email delivery is not yet configured on the server. Use this link to verify manually:
-                </p>
-                <a
-                  href={verificationUrl}
-                  className="text-xs text-primary underline break-all"
-                >
-                  Click here to verify your email
-                </a>
-              </div>
-            ) : (
-              <p className="text-xs text-amber-300/80 mt-0.5">
-                We sent a link to <strong>{user.email}</strong>. Check your inbox (and spam folder).
-              </p>
-            )}
-          </div>
-          <div className="shrink-0">
-            {resendState === "sent" ? (
-              <span className="inline-flex items-center gap-1.5 text-xs text-green-400 font-medium">
-                <CheckCircle2 className="w-4 h-4" /> Sent!
-              </span>
-            ) : resendState === "no_smtp" ? (
-              <button
-                onClick={() => { setResendState("idle"); setVerificationUrl(null); }}
-                className="text-xs text-amber-300/60 underline"
-              >
-                Retry
-              </button>
-            ) : resendState === "error" ? (
-              <button
-                onClick={() => setResendState("idle")}
-                className="text-xs text-destructive underline"
-              >
-                Failed — try again
-              </button>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-xs h-8 border-amber-500/40 text-amber-200 hover:bg-amber-500/20 hover:text-amber-100"
-                disabled={resendState === "sending"}
-                onClick={handleResendVerification}
-              >
-                <Mail className="w-3.5 h-3.5 mr-1.5" />
-                {resendState === "sending" ? "Sending…" : "Resend email"}
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
         {/* Upcoming appointments */}

@@ -72,7 +72,7 @@ router.post("/reviews", async (req, res): Promise<void> => {
   res.status(201).json(await enrichReview(review));
 });
 
-router.patch("/reviews/:id/approve", async (req, res): Promise<void> => {
+router.patch("/reviews/:id/approve", requireAdmin, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const [review] = await db.update(reviewsTable).set({ status: "approved" }).where(eq(reviewsTable.id, id)).returning();
@@ -80,7 +80,7 @@ router.patch("/reviews/:id/approve", async (req, res): Promise<void> => {
   res.json(ApproveReviewResponse.parse(await enrichReview(review)));
 });
 
-router.patch("/reviews/:id/hide", async (req, res): Promise<void> => {
+router.patch("/reviews/:id/hide", requireAdmin, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const [review] = await db.update(reviewsTable).set({ status: "hidden" }).where(eq(reviewsTable.id, id)).returning();

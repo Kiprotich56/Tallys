@@ -16,6 +16,10 @@ export interface Appointment {
   status: string;
   /** @nullable */
   notes?: string | null;
+  /** @nullable */
+  guardianName?: string | null;
+  /** @nullable */
+  guardianPhone?: string | null;
   totalKes: number;
   /** @nullable */
   customerName?: string | null;

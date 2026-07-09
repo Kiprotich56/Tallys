@@ -7,7 +7,8 @@
  */
 
 export interface ReviewInput {
-  customerId: number;
+  customerId?: number;
+  guestName?: string;
   serviceId?: number;
   staffId?: number;
   rating: number;

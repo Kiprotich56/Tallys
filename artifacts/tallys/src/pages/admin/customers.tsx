@@ -28,7 +28,7 @@ import { format, parseISO } from "date-fns";
 const editSchema = z.object({
   name: z.string().min(1, "Name is required"),
   phone: z.string().min(1, "Phone is required"),
-  email: z.string().email("Invalid email").optional().or(z.literal("")),
+  email: z.string().min(1, "Email is required").email("Invalid email"),
   gender: z.string().optional(),
 });
 
@@ -162,7 +162,7 @@ export default function AdminCustomers() {
 
   const onEditSubmit = (values: EditForm) => {
     if (!selectedCustomer) return;
-    updateCustomer.mutate({ id: selectedCustomer.id, data: { ...values, email: values.email || undefined, gender: values.gender || undefined } }, {
+    updateCustomer.mutate({ id: selectedCustomer.id, data: { ...values, gender: values.gender || undefined } }, {
       onSuccess: (updated) => {
         queryClient.invalidateQueries({ queryKey: getListCustomersQueryKey() });
         setSelectedCustomer(updated);
@@ -353,8 +353,8 @@ export default function AdminCustomers() {
                   </div>
                   <FormField control={form.control} name="email" render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl><Input type="email" placeholder="optional" {...field} /></FormControl>
+                      <FormLabel>Email *</FormLabel>
+                      <FormControl><Input type="email" placeholder="required" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
