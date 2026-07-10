@@ -3,3 +3,4 @@
 - [customFetch returns empty in Replit dev proxy](custom-fetch-replit-proxy.md) — React Query's customFetch (credentials:"include") silently returns [] for list endpoints in the Replit dev proxy. Fix: add a direct fetch() fallback in useEffect and merge results.
 - [API server esbuild externals + deps](api-server-esbuild-deps.md) — workspace lib packages must be BOTH in build.mjs externals AND in api-server/package.json dependencies for the externalized runtime to resolve them.
 - [Orval/Zod nullable response fields](orval-nullable-response-fields.md) — nullable DB columns need `["type","null"]` in openapi.yaml or Zod response parsing 500s at runtime (looks like a frontend bug but isn't).
+- [Tally's CORS/session cookie config](tallys-cors-session-cookie.md) — CORS `origin` must match the real frontend origin or secure+sameSite=none cookies get dropped, causing 401s that look like an auth-logic bug.

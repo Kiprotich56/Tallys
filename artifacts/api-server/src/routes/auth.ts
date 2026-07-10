@@ -6,15 +6,9 @@ import { usersTable, customersTable } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { loginLimiter, authLimiter, passwordResetLimiter } from "../lib/rate-limit";
 import { sendVerificationEmail, sendPasswordResetEmail } from "../lib/email";
+import { CLIENT_URL } from "../lib/client-url";
 
 const router = Router();
-
-// CLIENT_URL = the frontend (browser-facing domain). All email links (email
-// verification, password reset) must point here — never at the bare API
-// domain — so the user always lands on the app UI, not a JSON response.
-const CLIENT_URL = process.env.CLIENT_URL ?? process.env.APP_URL ?? (
-  process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "http://localhost:3000"
-);
 
 function generateToken() {
   return crypto.randomBytes(32).toString("hex");

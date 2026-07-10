@@ -387,132 +387,125 @@ export default function BookPage() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-5 gap-8">
-              <div className="md:col-span-3">
-                <form onSubmit={handleDetailsSubmit} className="space-y-4">
-                  <div>
-                    <Label htmlFor="name">Full Name *</Label>
-                    <Input
-                      id="name"
-                      required
-                      value={customerData.name}
-                      onChange={(e) => setCustomerData({ ...customerData, name: e.target.value })}
-                      className="mt-1"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {!user?.customerId && (
-                      <div>
-                        <Label htmlFor="phone">Phone Number *</Label>
-                        <Input
-                          id="phone"
-                          required
-                          placeholder="0712 345 678"
-                          value={customerData.phone}
-                          onChange={(e) => setCustomerData({ ...customerData, phone: e.target.value })}
-                          className="mt-1"
-                        />
-                      </div>
-                    )}
+                <div className="md:col-span-3">
+                  <form onSubmit={handleDetailsSubmit} className="space-y-4">
                     <div>
-                      <Label htmlFor="email">Email {!user ? "(optional)" : ""}</Label>
+                      <Label htmlFor="name">Full Name *</Label>
                       <Input
-                        id="email"
-                        type="email"
-                        value={customerData.email}
-                        onChange={(e) => setCustomerData({ ...customerData, email: e.target.value })}
+                        id="name"
+                        required
+                        value={customerData.name}
+                        onChange={(e) => setCustomerData({ ...customerData, name: e.target.value })}
                         className="mt-1"
                       />
                     </div>
-                  </div>
-                  <div>
-                    <Label htmlFor="dob">Date of Birth (of the person being booked for)</Label>
-                    <Input
-                      id="dob"
-                      type="date"
-                      value={clientDob}
-                      onChange={(e) => setClientDob(e.target.value)}
-                      className="mt-1"
-                      max={new Date().toISOString().slice(0, 10)}
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Used to check if a parent/guardian needs to make this booking.
-                    </p>
-                  </div>
-                  {isMinor && (
-                    <div className="space-y-4 p-4 rounded-lg border border-amber-500/40 bg-amber-500/10">
-                      <p className="text-sm text-amber-200">
-                        This booking is for someone under 18. A parent or guardian must provide their details below.
-                      </p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {!user?.customerId && (
                         <div>
-                          <Label htmlFor="guardianName">Parent/Guardian Name *</Label>
+                          <Label htmlFor="phone">Phone Number *</Label>
                           <Input
-                            id="guardianName"
-                            required
-                            value={guardianName}
-                            onChange={(e) => setGuardianName(e.target.value)}
-                            className="mt-1"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="guardianPhone">Parent/Guardian Phone *</Label>
-                          <Input
-                            id="guardianPhone"
+                            id="phone"
                             required
                             placeholder="0712 345 678"
-                            value={guardianPhone}
-                            onChange={(e) => setGuardianPhone(e.target.value)}
+                            value={customerData.phone}
+                            onChange={(e) => setCustomerData({ ...customerData, phone: e.target.value })}
                             className="mt-1"
                           />
                         </div>
+                      )}
+                      <div>
+                        <Label htmlFor="email">Email</Label>
+                        <Input
+                          id="email"
+                          type="email"
+                          value={customerData.email}
+                          onChange={(e) => setCustomerData({ ...customerData, email: e.target.value })}
+                          className="mt-1"
+                        />
                       </div>
                     </div>
-                  )}
-                  <div>
-                    <Label htmlFor="notes">Special Requests / Notes</Label>
-                    <Textarea
-                      id="notes"
-                      value={customerData.notes}
-                      onChange={(e) => setCustomerData({ ...customerData, notes: e.target.value })}
-                      className="mt-1 resize-none"
-                      rows={3}
-                    />
-                  </div>
-                  <div className="pt-4">
-                    <Button
-                      type="submit"
-                      className="w-full h-12 text-lg"
-                      disabled={createCustomer.isPending || createAppointment.isPending}
-                    >
-                      {createAppointment.isPending ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Reserving slot...
-                        </>
-                      ) : (
-                        "Confirm Booking →"
-                      )}
-                    </Button>
-                  </div>
-                  {!user && (
-                    <p className="text-xs text-center text-muted-foreground">
-                      Have an account?{" "}
-                      <a href="/login" className="text-primary hover:underline">Sign in</a>
-                      {" "}to book faster.
-                    </p>
-                  )}
-                </form>
-              </div>
+                    <div>
+                      <Label htmlFor="dob">Date of Birth (of the person being booked for)</Label>
+                      <Input
+                        id="dob"
+                        type="date"
+                        value={clientDob}
+                        onChange={(e) => setClientDob(e.target.value)}
+                        className="mt-1"
+                        max={new Date().toISOString().slice(0, 10)}
+                      />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Used to check if a parent/guardian needs to make this booking.
+                      </p>
+                    </div>
+                    {isMinor && (
+                      <div className="space-y-4 p-4 rounded-lg border border-amber-500/40 bg-amber-500/10">
+                        <p className="text-sm text-amber-200">
+                          This booking is for someone under 18. A parent or guardian must provide their details below.
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="guardianName">Parent/Guardian Name *</Label>
+                            <Input
+                              id="guardianName"
+                              required
+                              value={guardianName}
+                              onChange={(e) => setGuardianName(e.target.value)}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="guardianPhone">Parent/Guardian Phone *</Label>
+                            <Input
+                              id="guardianPhone"
+                              required
+                              placeholder="0712 345 678"
+                              value={guardianPhone}
+                              onChange={(e) => setGuardianPhone(e.target.value)}
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <Label htmlFor="notes">Special Requests / Notes</Label>
+                      <Textarea
+                        id="notes"
+                        value={customerData.notes}
+                        onChange={(e) => setCustomerData({ ...customerData, notes: e.target.value })}
+                        className="mt-1 resize-none"
+                        rows={3}
+                      />
+                    </div>
+                    <div className="pt-4">
+                      <Button
+                        type="submit"
+                        className="w-full h-12 text-lg"
+                        disabled={createCustomer.isPending || createAppointment.isPending}
+                      >
+                        {createAppointment.isPending ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Reserving slot...
+                          </>
+                        ) : (
+                          "Confirm Booking →"
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                </div>
 
-              <div className="md:col-span-2">
-                <BookingSummaryCard
-                  serviceName={getServiceName()}
-                  staffName={getStaffName()}
-                  date={selectedDate}
-                  timeSlot={selectedTimeSlot}
-                  priceKes={getServicePrice()}
-                />
+                <div className="md:col-span-2">
+                  <BookingSummaryCard
+                    serviceName={getServiceName()}
+                    staffName={getStaffName()}
+                    date={selectedDate}
+                    timeSlot={selectedTimeSlot}
+                    priceKes={getServicePrice()}
+                  />
+                </div>
               </div>
-            </div>
           </div>
         )}
 

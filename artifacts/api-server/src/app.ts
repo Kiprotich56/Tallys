@@ -5,6 +5,7 @@ import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import router from "./routes";
 import { logger } from "./lib/logger";
+import { CLIENT_URL } from "./lib/client-url";
 
 const PgSession = connectPgSimple(session);
 
@@ -31,7 +32,7 @@ app.use(
 );
 
 const corsOptions: cors.CorsOptions = {
-  origin: process.env.CLIENT_URL ?? "http://localhost:3000",
+  origin: CLIENT_URL,
   credentials: true,
   methods: ["GET", "HEAD", "PUT", "PATCH", "POST", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "Accept"],
