@@ -19,3 +19,20 @@ and both `app.ts` (CORS) and `routes/auth.ts` (email links) import the same `CLI
 constant. It also logs a startup error if running in production without `CLIENT_URL`/`APP_URL`
 set. Before publishing this app, set `CLIENT_URL` (shared env var, not secret) to the real
 deployed frontend origin — the fallback is a safety net, not a substitute.
+
+## Second layer: `trust proxy` on Render (or any TLS-terminating host)
+
+Even with CORS/CLIENT_URL correct, login can still return 200 with **no `Set-Cookie` header
+at all** when the API is deployed behind a reverse proxy that terminates TLS (Render,
+behind Cloudflare, etc.). `express-session`'s `cookie.secure: true` silently refuses to
+issue the cookie unless Express considers the request secure — and without
+`app.set("trust proxy", 1)`, `req.secure` is always `false` behind such a proxy, even
+though the real connection is HTTPS.
+
+**Symptom:** login/register return correct JSON with 200, but curl/DevTools show no
+`Set-Cookie` in the response; every subsequent authenticated request 401s.
+
+**Fix:** `app.set("trust proxy", 1)` before the session middleware, gated to production.
+Diagnose by curling the live login endpoint directly (`curl -i -X POST .../login ...`)
+and checking for `Set-Cookie` in the raw response — this isolates proxy/cookie issues
+from frontend bugs immediately.

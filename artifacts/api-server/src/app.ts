@@ -11,6 +11,16 @@ const PgSession = connectPgSimple(session);
 
 const app: Express = express();
 
+// Render (and Cloudflare in front of it) terminates TLS and forwards requests
+// over plain HTTP internally, signaling the original protocol via
+// X-Forwarded-Proto. Without trusting the proxy, Express's `req.secure` is
+// always false, which makes express-session silently refuse to set
+// `secure: true` cookies — login appears to succeed but no session cookie is
+// ever issued, so every subsequent request 401s.
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 app.use(
   pinoHttp({
     logger,
