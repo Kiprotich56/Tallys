@@ -14,7 +14,7 @@ import {
   getListAppointmentsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search, Calendar as CalendarIcon, Clock, MoreVertical, Check, X, Play, Plus } from "lucide-react";
+import { Search, Calendar as CalendarIcon, Clock, MoreVertical, Check, X, Play, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -83,6 +83,20 @@ export default function AdminAppointments() {
     if (action === 'confirm') confirmAppointment.mutate({ id }, { onSuccess });
     if (action === 'cancel') cancelAppointment.mutate({ id }, { onSuccess });
     if (action === 'complete') completeAppointment.mutate({ id }, { onSuccess });
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!window.confirm("Permanently delete this appointment? This removes it from the list and the customer's history and cannot be undone.")) return;
+    const res = await fetch(`/api/appointments/${id}/permanent`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (res.ok) {
+      invalidate();
+      toast({ title: "Appointment deleted" });
+    } else {
+      toast({ title: "Failed to delete appointment", variant: "destructive" });
+    }
   };
 
   const handleMarkPayment = async (id: number, paymentStatus: 'paid' | 'pending') => {
@@ -255,6 +269,10 @@ export default function AdminAppointments() {
                             <X className="mr-2 h-4 w-4" /> Cancel
                           </DropdownMenuItem>
                         )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => handleDelete(app.id)} className="text-red-600">
+                          <Trash2 className="mr-2 h-4 w-4" /> Delete
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>

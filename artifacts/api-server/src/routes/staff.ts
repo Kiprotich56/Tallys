@@ -1,6 +1,10 @@
 import { Router, type IRouter } from "express";
 import { eq, and, ne } from "drizzle-orm";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { db, staffTable, appointmentsTable } from "@workspace/db";
+import { requireAdmin } from "../middlewares/auth";
 import {
   ListStaffResponse,
   CreateStaffBody,
@@ -15,6 +19,31 @@ import {
 } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+
+const uploadDir = path.join(process.cwd(), "uploads", "staff");
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const name = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    cb(null, name);
+  },
+});
+
+const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowed = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (allowed.includes(ext)) cb(null, true);
+  else cb(new Error("Only image files are allowed"));
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+});
 
 function mapStaff(s: typeof staffTable.$inferSelect) {
   return {
@@ -122,6 +151,46 @@ router.delete("/staff/:id", requireAdmin, async (req, res): Promise<void> => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.delete(staffTable).where(eq(staffTable.id, id));
   res.status(204).send();
+});
+
+// Upload/replace a staff member's photo (admin only) — accepts either a
+// direct file upload or a plain imageUrl, same as the services image route.
+router.post("/staff/:id/photo", requireAdmin, upload.single("photo"), async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  try {
+    const [member] = await db.select().from(staffTable).where(eq(staffTable.id, id)).limit(1);
+    if (!member) { res.status(404).json({ error: "Staff not found" }); return; }
+
+    let photoUrl: string;
+    if (req.file) {
+      photoUrl = `/api/uploads/staff/${req.file.filename}`;
+    } else if (req.body.photoUrl) {
+      photoUrl = String(req.body.photoUrl).trim();
+    } else {
+      res.status(400).json({ error: "Either upload a photo file or provide photoUrl" });
+      return;
+    }
+
+    if (member.photoUrl?.startsWith("/api/uploads/staff/") && member.photoUrl !== photoUrl) {
+      const oldPath = path.join(uploadDir, path.basename(member.photoUrl));
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    const [updated] = await db.update(staffTable).set({ photoUrl }).where(eq(staffTable.id, id)).returning();
+    res.json(mapStaff(updated));
+  } catch (err) {
+    req.log.error(err, "upload staff photo error");
+    res.status(500).json({ error: "Failed to upload staff photo" });
+  }
+});
+
+// Serve uploaded staff photos
+router.get("/uploads/staff/:filename", (req, res): void => {
+  const filename = path.basename(req.params.filename as string);
+  const filePath = path.join(uploadDir, filename);
+  if (!fs.existsSync(filePath)) { res.status(404).json({ error: "File not found" }); return; }
+  res.sendFile(filePath);
 });
 
 export default router;

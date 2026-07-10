@@ -14,6 +14,7 @@ export const customersTable = pgTable("customers", {
   totalVisits: integer("total_visits").notNull().default(0),
   totalSpentKes: integer("total_spent_kes").notNull().default(0),
   adminNotes: text("admin_notes"),
+  avatarUrl: text("avatar_url"),
   lastInteraction: timestamp("last_interaction", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

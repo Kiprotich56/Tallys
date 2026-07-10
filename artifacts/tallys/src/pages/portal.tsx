@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Star, Calendar, Clock, Crown, History, LogOut, Mail, CheckCircle2, AlertCircle, UserPen, X, Save, KeyRound, Eye, EyeOff } from "lucide-react";
+import { Star, Calendar, Clock, Crown, History, LogOut, Mail, CheckCircle2, AlertCircle, UserPen, X, Save, KeyRound, Eye, EyeOff, Camera } from "lucide-react";
 import {
   useGetCustomer,
   useGetCustomerAppointments,
@@ -11,7 +11,9 @@ import {
   getGetCustomerAppointmentsQueryKey,
   getGetLoyaltyQueryKey,
 } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/auth-context";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -56,6 +58,32 @@ export default function PortalDashboard() {
   const [passwordSaved, setPasswordSaved] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordLoading, setPasswordLoading] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || !customerId) return;
+    const formData = new FormData();
+    formData.append("avatar", file);
+    setUploadingAvatar(true);
+    try {
+      const res = await fetch(`/api/customers/${customerId}/avatar`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (!res.ok) throw new Error();
+      queryClient.invalidateQueries({ queryKey: getGetCustomerQueryKey(customerId) });
+      toast({ title: "Profile picture updated" });
+    } catch {
+      toast({ title: "Failed to upload profile picture", variant: "destructive" });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const handleChangePassword = async () => {
     setPasswordError(null);
@@ -255,13 +283,28 @@ export default function PortalDashboard() {
     <div className="container mx-auto px-4 py-12 max-w-5xl">
       {/* Header */}
       <div className="mb-12 flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-serif font-bold mb-2">
-            Welcome back, {customer?.name || user?.name || "Client"}
-          </h1>
-          <p className="text-muted-foreground">
-            Manage your appointments and view your Tally's Society benefits.
-          </p>
+        <div className="flex items-center gap-4">
+          <label className={`relative w-16 h-16 rounded-full overflow-hidden bg-primary/20 flex-shrink-0 cursor-pointer group ${uploadingAvatar ? "opacity-60 pointer-events-none" : ""}`}>
+            {(customer as any)?.avatarUrl ? (
+              <img src={(customer as any).avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-primary font-bold text-xl">
+                {(customer?.name || user?.name || "C").charAt(0)}
+              </div>
+            )}
+            <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Camera className="w-5 h-5 text-white" />
+            </div>
+            <input type="file" accept="image/*" className="hidden" disabled={uploadingAvatar} onChange={handleAvatarUpload} />
+          </label>
+          <div>
+            <h1 className="text-3xl font-serif font-bold mb-2">
+              Welcome back, {customer?.name || user?.name || "Client"}
+            </h1>
+            <p className="text-muted-foreground">
+              Manage your appointments and view your Tally's Society benefits.
+            </p>
+          </div>
         </div>
         <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary gap-2" onClick={handleLogout}>
           <LogOut className="w-4 h-4" /> Sign Out

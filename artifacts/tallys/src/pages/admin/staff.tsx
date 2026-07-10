@@ -202,6 +202,7 @@ export default function AdminStaff() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null);
   const [portfolioStaff, setPortfolioStaff] = useState<{ id: number; name: string } | null>(null);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -280,6 +281,32 @@ export default function AdminStaff() {
     setIsDialogOpen(true);
   };
 
+  // Photo uploads reuse the staff record's id, so a brand-new staff member
+  // must be saved once (with a URL, or left blank) before a file can be
+  // uploaded — same pattern as service images.
+  const uploadStaffPhoto = async (file: File) => {
+    if (!editingId) return;
+    const formData = new FormData();
+    formData.append("photo", file);
+    setUploadingPhoto(true);
+    try {
+      const res = await fetch(`/api/staff/${editingId}/photo`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      form.setValue("photoUrl", updated.photoUrl ?? "");
+      invalidate();
+      toast({ title: "Photo uploaded" });
+    } catch {
+      toast({ title: "Failed to upload photo", variant: "destructive" });
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const confirmDelete = () => {
     if (!deleteTarget) return;
     deleteStaff.mutate({ id: deleteTarget.id }, {
@@ -349,15 +376,20 @@ export default function AdminStaff() {
 
                 <FormField control={form.control} name="photoUrl" render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Photo URL (Optional)</FormLabel>
+                    <FormLabel>Photo</FormLabel>
                     <FormControl><Input placeholder="https://example.com/photo.jpg" {...field} /></FormControl>
                     <FormMessage />
-                    {field.value && (
-                      <div className="mt-2 flex items-center gap-3">
-                        <img src={field.value} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-border" onError={e => (e.currentTarget.style.display = 'none')} />
-                        <span className="text-xs text-muted-foreground">Photo preview</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-3 mt-1">
+                      {field.value && (
+                        <img src={field.value} alt="Preview" className="w-12 h-12 rounded-full object-cover border border-border flex-shrink-0" onError={e => (e.currentTarget.style.display = 'none')} />
+                      )}
+                      <label className={`flex-1 flex items-center justify-center gap-2 h-9 rounded-md border border-dashed border-border cursor-pointer hover:bg-accent/10 transition-colors text-xs text-muted-foreground ${(!editingId || uploadingPhoto) ? "opacity-50 pointer-events-none" : ""}`}>
+                        <Upload className="w-3.5 h-3.5" />
+                        {uploadingPhoto ? "Uploading..." : editingId ? "Or upload a file (max 5MB)" : "Save profile once to enable file upload"}
+                        <input type="file" accept="image/*" className="hidden" disabled={!editingId || uploadingPhoto}
+                          onChange={e => { const file = e.target.files?.[0]; if (file) uploadStaffPhoto(file); e.target.value = ""; }} />
+                      </label>
+                    </div>
                   </FormItem>
                 )} />
 

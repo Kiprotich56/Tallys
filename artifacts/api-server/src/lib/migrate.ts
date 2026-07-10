@@ -117,6 +117,9 @@ export async function runMigrations() {
       CREATE UNIQUE INDEX IF NOT EXISTS idx_appointments_slot_unique
         ON appointments(staff_id, date, time_slot)
         WHERE status <> 'cancelled';
+
+      -- Customer profile pictures
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS avatar_url TEXT;
     `);
     logger.info("Database migrations completed successfully");
   } catch (err) {

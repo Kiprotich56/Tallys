@@ -1,5 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq, ilike, or } from "drizzle-orm";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
 import { db, customersTable, appointmentsTable, servicesTable, staffTable } from "@workspace/db";
 import {
   ListCustomersQueryParams,
@@ -17,6 +20,31 @@ import {
 import { requireAdmin, requireAuth, requireOwnerOrAdmin } from "../middlewares/auth";
 
 const router: IRouter = Router();
+
+const uploadDir = path.join(process.cwd(), "uploads", "avatars");
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (_req, _file, cb) => cb(null, uploadDir),
+  filename: (_req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase();
+    const name = `${Date.now()}-${Math.random().toString(36).slice(2)}${ext}`;
+    cb(null, name);
+  },
+});
+
+const fileFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const allowed = [".jpg", ".jpeg", ".png", ".webp", ".gif"];
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (allowed.includes(ext)) cb(null, true);
+  else cb(new Error("Only image files are allowed"));
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+});
 
 function ownCustomerId(req: { params: { id?: string } }): number | null {
   const id = Number(req.params.id);
@@ -36,6 +64,7 @@ function mapCustomer(c: typeof customersTable.$inferSelect) {
     totalVisits: c.totalVisits,
     totalSpentKes: c.totalSpentKes,
     adminNotes: c.adminNotes ?? null,
+    avatarUrl: c.avatarUrl ?? null,
     lastInteraction: c.lastInteraction ? c.lastInteraction.toISOString() : null,
     createdAt: c.createdAt.toISOString(),
   };
@@ -165,6 +194,46 @@ router.get("/customers/:id/appointments", requireOwnerOrAdmin(ownCustomerId), as
     customerName: r.customerName ?? null,
     createdAt: r.createdAt.toISOString(),
   }))));
+});
+
+// Upload/replace a customer's profile picture — the customer themselves or
+// an admin may do this, matching the ownership rule on the customer record.
+router.post("/customers/:id/avatar", requireOwnerOrAdmin(ownCustomerId), upload.single("avatar"), async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  try {
+    const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, id)).limit(1);
+    if (!customer) { res.status(404).json({ error: "Customer not found" }); return; }
+
+    let avatarUrl: string;
+    if (req.file) {
+      avatarUrl = `/api/uploads/avatars/${req.file.filename}`;
+    } else if (req.body.avatarUrl) {
+      avatarUrl = String(req.body.avatarUrl).trim();
+    } else {
+      res.status(400).json({ error: "Either upload an image file or provide avatarUrl" });
+      return;
+    }
+
+    if (customer.avatarUrl?.startsWith("/api/uploads/avatars/") && customer.avatarUrl !== avatarUrl) {
+      const oldPath = path.join(uploadDir, path.basename(customer.avatarUrl));
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    const [updated] = await db.update(customersTable).set({ avatarUrl }).where(eq(customersTable.id, id)).returning();
+    res.json(mapCustomer(updated));
+  } catch (err) {
+    req.log.error(err, "upload customer avatar error");
+    res.status(500).json({ error: "Failed to upload profile picture" });
+  }
+});
+
+// Serve uploaded profile pictures
+router.get("/uploads/avatars/:filename", (req, res): void => {
+  const filename = path.basename(req.params.filename as string);
+  const filePath = path.join(uploadDir, filename);
+  if (!fs.existsSync(filePath)) { res.status(404).json({ error: "File not found" }); return; }
+  res.sendFile(filePath);
 });
 
 export default router;

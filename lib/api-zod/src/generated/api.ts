@@ -315,6 +315,7 @@ export const ListCustomersResponseItem = zod.object({
   "loyaltyPoints": zod.number(),
   "totalVisits": zod.number(),
   "totalSpentKes": zod.number(),
+  "avatarUrl": zod.string().nullish(),
   "createdAt": zod.string().optional()
 })
 export const ListCustomersResponse = zod.array(ListCustomersResponseItem)
@@ -346,6 +347,7 @@ export const CreateCustomerResponse = zod.object({
   "loyaltyPoints": zod.number(),
   "totalVisits": zod.number(),
   "totalSpentKes": zod.number(),
+  "avatarUrl": zod.string().nullish(),
   "createdAt": zod.string().optional()
 })
 
@@ -365,6 +367,7 @@ export const GetCustomerResponse = zod.object({
   "loyaltyPoints": zod.number(),
   "totalVisits": zod.number(),
   "totalSpentKes": zod.number(),
+  "avatarUrl": zod.string().nullish(),
   "createdAt": zod.string().optional()
 })
 

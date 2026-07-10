@@ -196,20 +196,10 @@ router.post("/appointments", requireAuth, bookingLimiter, async (req, res): Prom
   // Update customer last interaction
   db.update(customersTable).set({ lastInteraction: new Date() }).where(eq(customersTable.id, parsed.data.customerId)).catch(() => {});
 
-  // Send confirmation email asynchronously
-  const [customer] = await db.select({ email: customersTable.email, name: customersTable.name }).from(customersTable).where(eq(customersTable.id, parsed.data.customerId));
-  const [staffRow] = await db.select({ name: staffTable.name }).from(staffTable).where(eq(staffTable.id, parsed.data.staffId));
-
-  if (customer?.email) {
-    sendBookingConfirmationEmail(customer.email, {
-      customerName: customer.name,
-      serviceName: service.name,
-      staffName: staffRow?.name ?? "Our team",
-      date: parsed.data.date,
-      timeSlot: parsed.data.timeSlot,
-      totalKes,
-    }).catch(() => {});
-  }
+  // Confirmation email is sent when an admin confirms the appointment (see
+  // PATCH /appointments/:id/confirm below), not at booking time — the booking
+  // is only "pending" until staff review it, so a "confirmed" email here
+  // would be premature and misleading.
 
   res.status(201).json(CreateAppointmentResponse.parse(await enrichAppointment(appt)));
 });
@@ -239,7 +229,11 @@ router.delete("/appointments/:id", requireOwnerOrAdmin(getAppointmentOwnerCustom
   const [appt] = await db.select().from(appointmentsTable).where(eq(appointmentsTable.id, params.data.id));
   if (!appt) { res.status(404).json({ error: "Appointment not found" }); return; }
 
-  await db.update(appointmentsTable).set({ status: "cancelled" }).where(eq(appointmentsTable.id, params.data.id));
+  // Cancelling a booking also voids any pending payment expectation for it —
+  // an unpaid, cancelled appointment should read "cancelled", not "pending".
+  await db.update(appointmentsTable)
+    .set({ status: "cancelled", paymentStatus: appt.paymentStatus === "paid" ? appt.paymentStatus : "cancelled" } as any)
+    .where(eq(appointmentsTable.id, params.data.id));
 
   // Send cancellation email
   const [customer] = await db.select({ email: customersTable.email, name: customersTable.name }).from(customersTable).where(eq(customersTable.id, appt.customerId));
@@ -261,15 +255,47 @@ router.patch("/appointments/:id/confirm", requireAdmin, async (req, res): Promis
   if (!params.success) { res.status(400).json({ error: params.error.message }); return; }
   const [appt] = await db.update(appointmentsTable).set({ status: "confirmed" }).where(eq(appointmentsTable.id, params.data.id)).returning();
   if (!appt) { res.status(404).json({ error: "Appointment not found" }); return; }
+
+  // Send the confirmation email now — this is the point at which a customer
+  // should be told their booking is actually happening.
+  const [customer] = await db.select({ email: customersTable.email, name: customersTable.name }).from(customersTable).where(eq(customersTable.id, appt.customerId));
+  const [service] = await db.select({ name: servicesTable.name }).from(servicesTable).where(eq(servicesTable.id, appt.serviceId));
+  const [staffRow] = await db.select({ name: staffTable.name }).from(staffTable).where(eq(staffTable.id, appt.staffId));
+  if (customer?.email) {
+    sendBookingConfirmationEmail(customer.email, {
+      customerName: customer.name,
+      serviceName: service?.name ?? "Service",
+      staffName: staffRow?.name ?? "Our team",
+      date: appt.date,
+      timeSlot: appt.timeSlot,
+      totalKes: appt.totalKes,
+    }).catch(() => {});
+  }
+
   res.json(ConfirmAppointmentResponse.parse(await enrichAppointment(appt)));
+});
+
+router.delete("/appointments/:id/permanent", requireAdmin, async (req, res): Promise<void> => {
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  const [appt] = await db.select().from(appointmentsTable).where(eq(appointmentsTable.id, id));
+  if (!appt) { res.status(404).json({ error: "Appointment not found" }); return; }
+
+  // Commissions reference the appointment via a NOT NULL FK — clear those
+  // first so the hard delete below doesn't fail with a foreign-key violation.
+  await db.delete(commissionsTable).where(eq(commissionsTable.appointmentId, id));
+  await db.delete(appointmentsTable).where(eq(appointmentsTable.id, id));
+
+  res.sendStatus(204);
 });
 
 router.patch("/appointments/:id/payment", requireAdmin, async (req, res): Promise<void> => {
   const id = Number(req.params.id);
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const { paymentStatus } = req.body;
-  if (!["pending", "paid"].includes(paymentStatus)) {
-    res.status(400).json({ error: "paymentStatus must be 'pending' or 'paid'" });
+  if (!["pending", "paid", "cancelled"].includes(paymentStatus)) {
+    res.status(400).json({ error: "paymentStatus must be 'pending', 'paid', or 'cancelled'" });
     return;
   }
   const [appt] = await db.update(appointmentsTable)
