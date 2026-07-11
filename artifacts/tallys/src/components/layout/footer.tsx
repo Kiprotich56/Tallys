@@ -19,7 +19,7 @@ export default function Footer() {
         <div>
           <h4 className="font-bold mb-4">Location</h4>
           <address className="not-italic text-sm text-muted-foreground space-y-2">
-            <p>Nairobi, Kenya</p>
+            <p>Nakuru, Kenya</p>
             <p>Open Mon-Sun</p>
             <p>8:00 AM - 8:00 PM</p>
           </address>
@@ -27,7 +27,7 @@ export default function Footer() {
         <div>
           <h4 className="font-bold mb-4">Contact</h4>
           <ul className="space-y-2 text-sm text-muted-foreground">
-            <li>+254 700 000 000</li>
+            <li>+254712345678</li>
             <li>hello@tallys.co.ke</li>
           </ul>
         </div>
