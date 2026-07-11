@@ -27,7 +27,7 @@ export default function Home() {
             transition={{ duration: 0.8 }}
             className="text-5xl md:text-7xl font-serif font-bold text-white mb-6 tracking-tight"
           >
-            Nairobi's Premium<br />
+            Nakuru's Premium<br />
             <span className="text-primary italic">Atelier</span>
           </motion.h1>
           
@@ -125,7 +125,7 @@ export default function Home() {
               ))}
             </div>
             <Link href="/portal" className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-8 text-sm font-medium text-primary-foreground shadow transition-colors hover:bg-primary/90">
-              Join the Society
+              Join us
             </Link>
           </div>
         </div>
